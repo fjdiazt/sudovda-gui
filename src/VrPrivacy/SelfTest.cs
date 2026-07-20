@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 namespace VrPrivacy;
 
 internal static class SelfTest
@@ -10,6 +11,15 @@ internal static class SelfTest
 
         using var form = new MainForm();
         Check(form.Text == "VR Privacy", "main window title");
+
+        Check(SudoVdaClient.IoctlAdd == 0x00222000, "ADD IOCTL");
+        Check(SudoVdaClient.IoctlRemove == 0x00222004, "REMOVE IOCTL");
+        Check(SudoVdaClient.IoctlGetWatchdog == 0x0022200C, "watchdog IOCTL");
+        Check(SudoVdaClient.IoctlPing == 0x00222220, "ping IOCTL");
+        Check(SudoVdaClient.IoctlGetProtocol == 0x002223FC, "protocol IOCTL");
+        Check(Marshal.SizeOf<SudoVdaClient.AddParams>() == 56, "ADD layout");
+        Check(Marshal.SizeOf<SudoVdaClient.AddOut>() == 12, "ADD output layout");
+        Check(Marshal.SizeOf<SudoVdaClient.ProtocolVersion>() == 4, "protocol layout");
 
         if (_failures == 0)
         {

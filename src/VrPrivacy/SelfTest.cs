@@ -21,6 +21,22 @@ internal static class SelfTest
         Check(Marshal.SizeOf<SudoVdaClient.AddOut>() == 12, "ADD output layout");
         Check(Marshal.SizeOf<SudoVdaClient.ProtocolVersion>() == 4, "protocol layout");
 
+        var modes = DisplayController.DistinctModes(
+        [
+            new DisplayMode(1920, 1080, 60),
+            new DisplayMode(1920, 1080, 60),
+            new DisplayMode(2560, 1440, 120)
+        ]);
+        Check(modes.Count == 2, "mode deduplication");
+        Check(modes[0].Width == 1920 && modes[1].Width == 2560, "mode ordering");
+        Check(DisplayController.IsSupported(new DisplayMode(640, 480, 60)), "minimum mode");
+        Check(!DisplayController.IsSupported(new DisplayMode(639, 480, 60)), "below-minimum mode");
+
+        var snapshot = DisplayController.Capture();
+        Check(snapshot.Displays.Count > 0, "active display discovery");
+        Check(snapshot.Displays.Count(display => display.Primary) == 1, "single primary discovery");
+        Check(DisplayController.GetModeChoices().Count > 0, "display mode discovery");
+
         if (_failures == 0)
         {
             Console.WriteLine("Self-test passed.");

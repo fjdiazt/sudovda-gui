@@ -11,6 +11,16 @@ internal static class SelfTest
 
         using var form = new MainForm();
         Check(form.Text == "VR Privacy", "main window title");
+        var modeCombo = form.Controls.Find("modeCombo", true).OfType<ComboBox>().SingleOrDefault();
+        var primaryCheck = form.Controls.Find("primaryCheck", true).OfType<CheckBox>().SingleOrDefault();
+        var routingCheck = form.Controls.Find("routingCheck", true).OfType<CheckBox>().SingleOrDefault();
+        var startStopButton = form.Controls.Find("startStopButton", true).OfType<Button>().SingleOrDefault();
+        Check(modeCombo is not null && modeCombo.SelectedIndex == 0, "copy-primary default");
+        Check(modeCombo?.SelectedItem?.ToString() == "Copy primary", "copy-primary label");
+        Check(primaryCheck?.Checked == true, "make-primary default");
+        Check(routingCheck?.Checked == true, "routing default");
+        Check(startStopButton?.Text == "Start", "start button default");
+
 
         Check(SudoVdaClient.IoctlAdd == 0x00222000, "ADD IOCTL");
         Check(SudoVdaClient.IoctlRemove == 0x00222004, "REMOVE IOCTL");

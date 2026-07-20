@@ -122,20 +122,51 @@ internal static class DisplayController
             throw new ArgumentOutOfRangeException(nameof(mode), $"Unsupported display mode: {mode}.");
 
         var active = Capture();
-        var right = active.Displays.Max(display => display.Position.X + checked((int)display.Mode.Width));
-        ApplyState(new DisplayState(deviceName, new Point(right, 0), mode, false), false);
-        CommitChanges("place virtual display");
+        var current = active.Displays.Single(display =>
+            string.Equals(display.DeviceName, deviceName, StringComparison.OrdinalIgnoreCase));
+        var position = ChoosePosition(active, deviceName);
+        if (current.Position != position || current.Mode != mode)
+        {
+            ApplyState(new DisplayState(deviceName, position, mode, false), false, true);
+            CommitChanges("place virtual display");
+        }
 
         if (makePrimary)
-            SetPrimary(deviceName);
+            MakePrimary(deviceName);
 
         return GetBounds(deviceName);
+    }
+
+    internal static Point ChoosePosition(DisplaySnapshot snapshot, string deviceName)
+    {
+        var target = snapshot.Displays.Single(display =>
+            string.Equals(display.DeviceName, deviceName, StringComparison.OrdinalIgnoreCase));
+        var others = snapshot.Displays
+            .Where(display => !string.Equals(display.DeviceName, deviceName, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        var targetBounds = new Rectangle(
+            target.Position.X,
+            target.Position.Y,
+            checked((int)target.Mode.Width),
+            checked((int)target.Mode.Height));
+        var overlaps = others.Any(display => targetBounds.IntersectsWith(new Rectangle(
+            display.Position.X,
+            display.Position.Y,
+            checked((int)display.Mode.Width),
+            checked((int)display.Mode.Height))));
+        if (!overlaps)
+            return target.Position;
+
+        var right = others.Max(display => display.Position.X + checked((int)display.Mode.Width));
+        var primaryY = others.Single(display => display.Primary).Position.Y;
+        return new Point(right, primaryY);
     }
 
     internal static void Restore(DisplaySnapshot snapshot)
     {
         foreach (var display in snapshot.Displays)
-            ApplyState(display, display.Primary);
+            ApplyState(display, display.Primary, false);
 
         CommitChanges("restore display topology");
     }
@@ -152,7 +183,7 @@ internal static class DisplayController
             checked((int)mode.PelsHeight));
     }
 
-    private static void SetPrimary(string deviceName)
+    internal static void MakePrimary(string deviceName)
     {
         var displays = Capture().Displays;
         var target = displays.SingleOrDefault(display =>
@@ -161,7 +192,8 @@ internal static class DisplayController
         if (target is null)
             throw new InvalidOperationException($"Display {deviceName} is not active.");
 
-        foreach (var display in displays)
+        foreach (var display in displays.OrderByDescending(display =>
+                     string.Equals(display.DeviceName, deviceName, StringComparison.OrdinalIgnoreCase)))
         {
             var shifted = display with
             {
@@ -169,20 +201,26 @@ internal static class DisplayController
                     display.Position.X - target.Position.X,
                     display.Position.Y - target.Position.Y)
             };
-            ApplyState(shifted, string.Equals(display.DeviceName, deviceName, StringComparison.OrdinalIgnoreCase));
+            ApplyState(shifted, string.Equals(display.DeviceName, deviceName, StringComparison.OrdinalIgnoreCase), false);
         }
 
         CommitChanges($"make {deviceName} primary");
     }
 
-    private static void ApplyState(DisplayState state, bool setPrimary)
+    private static void ApplyState(DisplayState state, bool setPrimary, bool applyMode)
     {
-        var mode = NewDevMode();
+        if (!TryGetSettings(state.DeviceName, EnumCurrentSettings, out var mode))
+            throw new Win32Exception(Marshal.GetLastWin32Error(),
+                $"Could not read current display settings for {state.DeviceName}.");
         mode.Position = new PointL { X = state.Position.X, Y = state.Position.Y };
-        mode.PelsWidth = state.Mode.Width;
-        mode.PelsHeight = state.Mode.Height;
-        mode.DisplayFrequency = state.Mode.RefreshHz;
-        mode.Fields = DmPosition | DmPelsWidth | DmPelsHeight | DmDisplayFrequency;
+        mode.Fields = DmPosition;
+        if (applyMode)
+        {
+            mode.PelsWidth = state.Mode.Width;
+            mode.PelsHeight = state.Mode.Height;
+            mode.DisplayFrequency = state.Mode.RefreshHz;
+            mode.Fields |= DmPelsWidth | DmPelsHeight | DmDisplayFrequency;
+        }
 
         var flags = CdsUpdateRegistry | CdsNoReset;
         if (setPrimary)

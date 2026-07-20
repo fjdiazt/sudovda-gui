@@ -44,6 +44,22 @@ internal static class SelfTest
 
         var snapshot = DisplayController.Capture();
         Check(snapshot.Displays.Count > 0, "active display discovery");
+
+        var placedDisplays = new DisplaySnapshot(
+        [
+            new DisplayState("physical", new Point(0, 0), new DisplayMode(1920, 1080, 60), true),
+            new DisplayState("virtual", new Point(1920, 0), new DisplayMode(1920, 1080, 60), false)
+        ]);
+        Check(DisplayController.ChoosePosition(placedDisplays, "virtual") == new Point(1920, 0),
+            "retain non-overlapping virtual position");
+
+        var overlappingDisplays = new DisplaySnapshot(
+        [
+            new DisplayState("physical", new Point(0, 0), new DisplayMode(1920, 1080, 60), true),
+            new DisplayState("virtual", new Point(0, 0), new DisplayMode(1920, 1080, 60), false)
+        ]);
+        Check(DisplayController.ChoosePosition(overlappingDisplays, "virtual") == new Point(1920, 0),
+            "move overlapping virtual display right");
         Check(snapshot.Displays.Count(display => display.Primary) == 1, "single primary discovery");
         Check(DisplayController.GetModeChoices().Count > 0, "display mode discovery");
 
@@ -54,6 +70,13 @@ internal static class SelfTest
         Check(!WindowRouter.IsEligible(new(true, false, false, true, 42), 7, 99), "non-activating window");
         Check(!WindowRouter.IsEligible(new(true, false, false, false, 99), 7, 99), "shell process");
         Check(!WindowRouter.IsEligible(new(false, false, false, false, 42), 7, 99), "hidden window");
+
+        using var driver = SudoVdaClient.Open();
+        var protocol = driver.GetProtocolVersion();
+        var watchdog = driver.GetWatchdog();
+        Check(protocol.Major == 0 && protocol.Minor >= 2, "installed driver protocol");
+        Check(watchdog.Countdown <= watchdog.Timeout, "installed driver watchdog");
+        Console.WriteLine($"SudoVDA protocol {protocol.Major}.{protocol.Minor}.{protocol.Incremental}; watchdog {watchdog.Timeout}s.");
 
         if (_failures == 0)
         {

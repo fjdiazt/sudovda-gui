@@ -118,7 +118,7 @@ Cleanup is idempotent. Failure in one cleanup action does not skip later cleanup
 
 ### Unexpected termination
 
-SudoVDA's watchdog removes the monitor after pings stop. Windows then falls back to remaining physical displays. Exact pre-session topology restoration is guaranteed only on normal `Stop`/exit; the POC does not add a recovery service or persistent journal.
+SudoVDA's watchdog can remove the monitor after all client pings stop. Apollo or another client sharing the driver can extend that timing, so a hard process kill may leave the monitor until the next explicit removal. Exact pre-session topology restoration is guaranteed only on normal `Stop`/exit; the POC does not add a recovery service or persistent journal.
 
 ## Mode choices
 
@@ -156,7 +156,7 @@ Manual integration smoke test:
 6. Stop and verify the virtual monitor disappears and the original topology/primary return.
 7. Repeat using one explicit mode.
 8. Attempt one invalid mode through the internal smoke path and verify rollback leaves no monitor.
-9. Start again, terminate the process without cleanup, and verify SudoVDA watchdog removes the monitor while physical displays remain usable.
+9. With no other SudoVDA client pinging, start again, terminate the process without cleanup, and verify watchdog removal while physical displays remain usable.
 
 ## Non-goals
 

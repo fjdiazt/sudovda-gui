@@ -204,9 +204,9 @@ internal sealed class MainForm : Form
                 return;
 
             _transitioning = true;
-            _session = null;
             SetUiState("Stopping...", true, false);
             var errors = new List<string>();
+            var removed = false;
 
             await TryCleanupAsync(async () =>
             {
@@ -224,18 +224,30 @@ internal sealed class MainForm : Form
                 () => session.WatchdogTask,
                 "stop watchdog",
                 errors);
-            await TryCleanupAsync(() =>
+            try
             {
                 session.Driver.Remove(session.MonitorGuid);
-                return Task.CompletedTask;
-            }, "remove virtual display", errors);
-            session.WatchdogCancellation.Dispose();
-            session.Driver.Dispose();
+                removed = true;
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"remove virtual display: {exception.Message}");
+            }
 
-            SetUiState(
-                errors.Count == 0 ? "Stopped" : $"Stopped with errors: {string.Join(" | ", errors)}",
-                false,
-                false);
+            if (removed)
+            {
+                session.WatchdogCancellation.Dispose();
+                session.Driver.Dispose();
+                _session = null;
+                SetUiState(
+                    errors.Count == 0 ? "Stopped" : $"Stopped with errors: {string.Join(" | ", errors)}",
+                    false,
+                    false);
+            }
+            else
+            {
+                SetUiState($"Stop failed: {string.Join(" | ", errors)}", false, true);
+            }
         }
         finally
         {
@@ -364,8 +376,15 @@ internal sealed class MainForm : Form
         BeginInvoke(async () =>
         {
             await StopAsync();
-            _allowClose = true;
-            Close();
+            if (_session is null)
+            {
+                _allowClose = true;
+                Close();
+            }
+            else
+            {
+                _closing = false;
+            }
         });
     }
 

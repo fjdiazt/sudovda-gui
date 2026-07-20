@@ -37,6 +37,14 @@ internal static class SelfTest
         Check(snapshot.Displays.Count(display => display.Primary) == 1, "single primary discovery");
         Check(DisplayController.GetModeChoices().Count > 0, "display mode discovery");
 
+        Check(WindowRouter.IsEligible(new(true, false, false, false, 42), 7, 99), "normal window");
+        Check(!WindowRouter.IsEligible(new(true, false, false, false, 7), 7, 99), "own process");
+        Check(!WindowRouter.IsEligible(new(true, true, false, false, 42), 7, 99), "cloaked window");
+        Check(!WindowRouter.IsEligible(new(true, false, true, false, 42), 7, 99), "tool window");
+        Check(!WindowRouter.IsEligible(new(true, false, false, true, 42), 7, 99), "non-activating window");
+        Check(!WindowRouter.IsEligible(new(true, false, false, false, 99), 7, 99), "shell process");
+        Check(!WindowRouter.IsEligible(new(false, false, false, false, 42), 7, 99), "hidden window");
+
         if (_failures == 0)
         {
             Console.WriteLine("Self-test passed.");

@@ -1,4 +1,4 @@
-# VR Privacy
+# SudoVDA GUI
 
 Small Windows GUI for one temporary SudoVDA virtual monitor.
 
@@ -15,8 +15,8 @@ The app does not install, update, reload, or remove the driver. Apollo may remai
 ## Build and run
 
 ```powershell
-dotnet build src\VrPrivacy\VrPrivacy.csproj -c Release
-dotnet run --project src\VrPrivacy\VrPrivacy.csproj
+dotnet build src\SudoVDA.GUI\SudoVDA.GUI.csproj -c Release
+dotnet run --project src\SudoVDA.GUI\SudoVDA.GUI.csproj
 ```
 
 UI controls:
@@ -27,6 +27,9 @@ UI controls:
 - `Make primary`: temporarily makes the virtual monitor primary. Enabled by default for fullscreen-game compatibility.
 - `Route new windows`: moves eligible top-level windows first shown after start. Enabled by default.
 - `Start` / `Stop`: creates or removes the app-owned monitor.
+- Status: bottom-left colored dot and text; red means stopped/error, amber means transitioning, and green means active.
+
+Display settings appear in the `Display` group. Lifecycle options appear in the `Behavior` group.
 
 Selecting a preset populates Width and Height. Editing either dimension selects `Custom`. Form choices persist per user in `HKCU\Software\VRPrivacy`; `Copy primary` rereads the primary mode on the next launch.
 
@@ -37,13 +40,13 @@ Closing the app performs the same cleanup as `Stop`.
 Form, protocol, and temporary-registry checks (no display topology mutation):
 
 ```powershell
-dotnet run --project src\VrPrivacy\VrPrivacy.csproj -- --self-test
+dotnet run --project src\SudoVDA.GUI\SudoVDA.GUI.csproj -- --self-test
 ```
 
 Live lifecycle smoke test:
 
 ```powershell
-dotnet run --project src\VrPrivacy\VrPrivacy.csproj -- --smoke-test
+dotnet run --project src\SudoVDA.GUI\SudoVDA.GUI.csproj -- --smoke-test
 ```
 
 The live test briefly creates a copied-mode monitor, routes a separate test window, makes the virtual monitor primary, removes it, and waits until the exact original topology returns. Displays and taskbar may move briefly.

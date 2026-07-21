@@ -98,6 +98,13 @@ internal static class SelfTest
         var primaryCheck = form.Controls.Find("primaryCheck", true).OfType<CheckBox>().Single();
         var routingCheck = form.Controls.Find("routingCheck", true).OfType<CheckBox>().Single();
         var start = form.Controls.Find("startStopButton", true).OfType<Button>().Single();
+        var displayGroup = form.Controls.Find("displayGroup", true).OfType<GroupBox>().SingleOrDefault();
+        var behaviorGroup = form.Controls.Find("behaviorGroup", true).OfType<GroupBox>().SingleOrDefault();
+        var resolutionLayout = form.Controls.Find("resolutionLayout", true).OfType<TableLayoutPanel>().SingleOrDefault();
+        var widthLabel = form.Controls.Find("widthLabel", true).OfType<Label>().SingleOrDefault();
+        var heightLabel = form.Controls.Find("heightLabel", true).OfType<Label>().SingleOrDefault();
+        var refreshLabel = form.Controls.Find("refreshLabel", true).OfType<Label>().SingleOrDefault();
+        var statusIndicator = form.Controls.Find("statusIndicator", true).OfType<Label>().SingleOrDefault();
 
         Check(form.Text == "SudoVDA", "main window title");
         Check(preset.SelectedItem?.ToString() == "Copy primary", "copy-primary default");
@@ -106,6 +113,32 @@ internal static class SelfTest
         Check(primaryCheck.Checked, "make-primary default");
         Check(routingCheck.Checked, "routing default");
         Check(start.Text == "Start", "start button default");
+        Check(displayGroup?.Text == "Display", "display group");
+        Check(behaviorGroup?.Text == "Behavior", "behavior group");
+        Check(resolutionLayout is not null, "resolution row layout");
+        if (resolutionLayout is not null)
+        {
+            Check(resolutionLayout.GetPositionFromControl(width).Column == 0 &&
+                  resolutionLayout.GetPositionFromControl(width).Row == 3 &&
+                  resolutionLayout.GetPositionFromControl(height).Column == 1 &&
+                  resolutionLayout.GetPositionFromControl(height).Row == 3 &&
+                  resolutionLayout.GetPositionFromControl(refresh).Column == 2 &&
+                  resolutionLayout.GetPositionFromControl(refresh).Row == 3,
+                "dimension controls share one row");
+            Check(widthLabel is not null && heightLabel is not null && refreshLabel is not null &&
+                  resolutionLayout.GetPositionFromControl(widthLabel).Row == 2 &&
+                  resolutionLayout.GetPositionFromControl(heightLabel).Row == 2 &&
+                  resolutionLayout.GetPositionFromControl(refreshLabel).Row == 2,
+                "dimension labels share row above controls");
+        }
+        Check(statusIndicator?.ForeColor == Color.Firebrick, "stopped status color");
+        form.SetUiState("Starting...", true, false);
+        Check(statusIndicator?.ForeColor == Color.DarkOrange, "busy status color");
+        form.SetUiState("Active", false, true);
+        Check(statusIndicator?.ForeColor == Color.ForestGreen, "active status color");
+        form.SetUiState("Stop failed", false, true, true);
+        Check(statusIndicator?.ForeColor == Color.Firebrick, "error status color");
+        form.SetUiState("Stopped", false, false);
 
         preset.SelectedItem = preset.Items.Cast<object>()
             .Single(item => item.ToString() == "1920 x 1080");

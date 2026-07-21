@@ -61,6 +61,14 @@ internal sealed class MainForm : Form
         Dock = DockStyle.Fill,
         TextAlign = ContentAlignment.MiddleLeft
     };
+    private readonly Label _statusIndicator = new()
+    {
+        Name = "statusIndicator",
+        Text = "●",
+        AutoSize = true,
+        ForeColor = Color.Firebrick,
+        Anchor = AnchorStyles.Left
+    };
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly DisplayMode _primaryMode;
     private readonly Action<UserSettings> _saveSettings;
@@ -90,39 +98,90 @@ internal sealed class MainForm : Form
         _saveSettings = saveSettings ?? (value => UserSettingsStore.Save(value));
 
         Text = "SudoVDA";
-        ClientSize = new Size(460, 300);
+        ClientSize = new Size(500, 280);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         _resolutionErrors.ContainerControl = this;
 
+        var resolutionLayout = new TableLayoutPanel
+        {
+            Name = "resolutionLayout",
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            ColumnCount = 3,
+            RowCount = 4,
+            Padding = new Padding(8)
+        };
+        for (var column = 0; column < 3; column++)
+            resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
+        var presetLabel = CreateFieldLabel("presetLabel", "Resolution preset");
+        resolutionLayout.Controls.Add(presetLabel, 0, 0);
+        resolutionLayout.SetColumnSpan(presetLabel, 3);
+        resolutionLayout.Controls.Add(_presetCombo, 0, 1);
+        resolutionLayout.SetColumnSpan(_presetCombo, 3);
+        resolutionLayout.Controls.Add(CreateFieldLabel("widthLabel", "Width"), 0, 2);
+        resolutionLayout.Controls.Add(CreateFieldLabel("heightLabel", "Height"), 1, 2);
+        resolutionLayout.Controls.Add(CreateFieldLabel("refreshLabel", "Refresh rate"), 2, 2);
+        resolutionLayout.Controls.Add(_widthText, 0, 3);
+        resolutionLayout.Controls.Add(_heightText, 1, 3);
+        resolutionLayout.Controls.Add(_refreshCombo, 2, 3);
+
+        var displayGroup = new GroupBox
+        {
+            Name = "displayGroup",
+            Text = "Display",
+            Dock = DockStyle.Fill,
+            AutoSize = true
+        };
+        displayGroup.Controls.Add(resolutionLayout);
+
+        var behaviorFlow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            Padding = new Padding(8, 4, 8, 4)
+        };
+        behaviorFlow.Controls.Add(_primaryCheck);
+        behaviorFlow.Controls.Add(_routingCheck);
+        var behaviorGroup = new GroupBox
+        {
+            Name = "behaviorGroup",
+            Text = "Behavior",
+            Dock = DockStyle.Fill,
+            AutoSize = true
+        };
+        behaviorGroup.Controls.Add(behaviorFlow);
+
+        var footer = new TableLayoutPanel
+        {
+            Name = "footerLayout",
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            ColumnCount = 3
+        };
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        footer.Controls.Add(_statusIndicator, 0, 0);
+        footer.Controls.Add(_statusLabel, 1, 0);
+        footer.Controls.Add(_startStopButton, 2, 0);
+
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(12),
-            ColumnCount = 2,
-            RowCount = 8
+            ColumnCount = 1,
+            RowCount = 4
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-        AddRow(layout, 0, "Resolution preset", _presetCombo);
-        AddRow(layout, 1, "Width", _widthText);
-        AddRow(layout, 2, "Height", _heightText);
-        AddRow(layout, 3, "Refresh rate", _refreshCombo);
-        layout.Controls.Add(_primaryCheck, 1, 4);
-        layout.Controls.Add(_routingCheck, 1, 5);
-        layout.Controls.Add(_statusLabel, 0, 6);
-        layout.SetColumnSpan(_statusLabel, 2);
-        layout.Controls.Add(_startStopButton, 1, 7);
+        layout.Controls.Add(displayGroup, 0, 0);
+        layout.Controls.Add(behaviorGroup, 0, 1);
+        layout.Controls.Add(footer, 0, 3);
         Controls.Add(layout);
 
         LoadResolutionControls(availableModes ?? DisplayController.GetModeChoices(), _lastValidSettings);
@@ -137,17 +196,13 @@ internal sealed class MainForm : Form
         ValidateResolution();
     }
 
-    private static void AddRow(TableLayoutPanel layout, int row, string label, Control control)
+    private static Label CreateFieldLabel(string name, string text) => new()
     {
-        layout.Controls.Add(new Label
-        {
-            Text = label,
-            AutoSize = true,
-            Anchor = AnchorStyles.Left,
-            Margin = new Padding(3, 7, 12, 3)
-        }, 0, row);
-        layout.Controls.Add(control, 1, row);
-    }
+        Name = name,
+        Text = text,
+        AutoSize = true,
+        Anchor = AnchorStyles.Left
+    };
 
     private void LoadResolutionControls(IReadOnlyList<DisplayMode> modes, UserSettings settings)
     {
@@ -269,7 +324,7 @@ internal sealed class MainForm : Form
         }
         catch (Exception exception)
         {
-            _statusLabel.Text = $"Settings save failed: {exception.Message}";
+            SetStatusError($"Settings save failed: {exception.Message}");
         }
     }
 
@@ -419,7 +474,7 @@ internal sealed class MainForm : Form
             }
             else
             {
-                SetUiState($"Stop failed: {string.Join(" | ", errors)}", false, true);
+                SetUiState($"Stop failed: {string.Join(" | ", errors)}", false, true, true);
             }
         }
         finally
@@ -523,12 +578,19 @@ internal sealed class MainForm : Form
             return;
         }
 
-        _statusLabel.Text = message;
+        SetStatusError(message);
     }
 
-    internal void SetUiState(string status, bool busy, bool active)
+    internal void SetUiState(string status, bool busy, bool active, bool error = false)
     {
         _statusLabel.Text = status;
+        _statusIndicator.ForeColor = error
+            ? Color.Firebrick
+            : busy
+                ? Color.DarkOrange
+                : active
+                    ? Color.ForestGreen
+                    : Color.Firebrick;
         _busy = busy;
         var resolutionEnabled = !busy && !active;
         _presetCombo.Enabled = resolutionEnabled;
@@ -539,6 +601,12 @@ internal sealed class MainForm : Form
         _routingCheck.Enabled = resolutionEnabled;
         _startStopButton.Text = active ? "Stop" : "Start";
         UpdateStartStopEnabled();
+    }
+
+    private void SetStatusError(string status)
+    {
+        _statusLabel.Text = status;
+        _statusIndicator.ForeColor = Color.Firebrick;
     }
 
     private void OnFormClosing(object? sender, FormClosingEventArgs eventArgs)

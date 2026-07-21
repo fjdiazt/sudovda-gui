@@ -1,6 +1,7 @@
 using Microsoft.Win32;
+using System.Reflection;
 using System.Runtime.InteropServices;
-namespace VrPrivacy;
+namespace SudoVDA.GUI;
 
 internal static class SelfTest
 {
@@ -8,6 +9,7 @@ internal static class SelfTest
 
     internal static int Run()
     {
+        Check(Assembly.GetExecutingAssembly().GetName().Name == "SudoVDA-GUI", "assembly name");
         Check(new DisplayMode(1920, 1080, 60).ToString() == "1920 x 1080 @ 60 Hz", "display mode formatting");
         CheckResolutionSettings();
         CheckResolutionForm();
@@ -97,7 +99,7 @@ internal static class SelfTest
         var routingCheck = form.Controls.Find("routingCheck", true).OfType<CheckBox>().Single();
         var start = form.Controls.Find("startStopButton", true).OfType<Button>().Single();
 
-        Check(form.Text == "VR Privacy", "main window title");
+        Check(form.Text == "SudoVDA", "main window title");
         Check(preset.SelectedItem?.ToString() == "Copy primary", "copy-primary default");
         Check(width.Text == "3440" && height.Text == "1440", "copy-primary dimensions");
         Check((uint)refresh.SelectedItem! == 119, "copy-primary refresh");

@@ -1,7 +1,7 @@
 using Microsoft.Win32;
 using System.Globalization;
 
-namespace VrPrivacy;
+namespace SudoVDA.GUI;
 
 internal readonly record struct ResolutionSize(uint Width, uint Height)
 {

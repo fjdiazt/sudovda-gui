@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 
-namespace VrPrivacy;
+namespace SudoVDA.GUI;
 
 internal sealed class SudoVdaClient : IDisposable
 {

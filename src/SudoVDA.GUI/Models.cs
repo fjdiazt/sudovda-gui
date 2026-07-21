@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace VrPrivacy;
+namespace SudoVDA.GUI;
 
 internal readonly record struct DisplayMode(uint Width, uint Height, uint RefreshHz)
 {

@@ -1,4 +1,4 @@
-namespace VrPrivacy;
+namespace SudoVDA.GUI;
 
 internal static class Program
 {

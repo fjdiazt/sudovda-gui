@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Drawing;
 
-namespace VrPrivacy;
+namespace SudoVDA.GUI;
 
 internal static class SmokeTest
 {
@@ -95,7 +95,7 @@ internal static class SmokeTest
 
     internal static Form CreateTestWindow() => new()
     {
-        Text = "VR Privacy Smoke Window",
+        Text = "SudoVDA Smoke Window",
         ClientSize = new Size(640, 480),
         StartPosition = FormStartPosition.Manual,
         Location = new Point(40, 40)

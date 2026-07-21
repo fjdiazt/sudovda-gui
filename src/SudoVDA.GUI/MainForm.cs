@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace VrPrivacy;
+namespace SudoVDA.GUI;
 
 internal sealed class MainForm : Form
 {
@@ -89,7 +89,7 @@ internal sealed class MainForm : Form
         _lastValidSettings = settings ?? UserSettingsStore.Load(_primaryMode);
         _saveSettings = saveSettings ?? (value => UserSettingsStore.Save(value));
 
-        Text = "VR Privacy";
+        Text = "SudoVDA";
         ClientSize = new Size(460, 300);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;

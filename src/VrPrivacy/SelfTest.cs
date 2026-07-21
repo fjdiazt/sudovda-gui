@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using System.Runtime.InteropServices;
 namespace VrPrivacy;
 
@@ -8,6 +9,7 @@ internal static class SelfTest
     internal static int Run()
     {
         Check(new DisplayMode(1920, 1080, 60).ToString() == "1920 x 1080 @ 60 Hz", "display mode formatting");
+        CheckResolutionSettings();
 
         using var form = new MainForm();
         Check(form.Text == "VR Privacy", "main window title");
@@ -86,6 +88,45 @@ internal static class SelfTest
 
         Console.Error.WriteLine($"Self-test failed: {_failures} check(s).");
         return 1;
+    }
+
+    private static void CheckResolutionSettings()
+    {
+        var primary = new DisplayMode(3440, 1440, 119);
+        var rates = ResolutionOptions.RefreshRates(primary.RefreshHz);
+        Check(rates.Contains(24u) && rates.Contains(500u), "standard refresh rates");
+        Check(rates.Contains(119u), "primary refresh inclusion");
+
+        var sizes = ResolutionOptions.DistinctSizes(
+        [
+            new DisplayMode(1920, 1080, 60),
+            new DisplayMode(1920, 1080, 120),
+            new DisplayMode(2560, 1440, 120)
+        ]);
+        Check(sizes.Count == 2, "resolution size deduplication");
+        Check(ResolutionOptions.TryParseMode("640", "480", 60, out var minimum, out _, out _) &&
+              minimum == new DisplayMode(640, 480, 60), "minimum custom mode");
+        Check(!ResolutionOptions.TryParseMode("639", "480", 60, out _, out var widthError, out _) &&
+              widthError == "Width must be 640–7680.", "width lower bound");
+        Check(!ResolutionOptions.TryParseMode("1920", "nope", 60, out _, out _, out var heightError) &&
+              heightError == "Height must be 480–4320.", "nonnumeric height");
+
+        var path = $@"Software\VRPrivacy\Tests\{Guid.NewGuid():N}";
+        try
+        {
+            var expected = new UserSettings("Custom", 2000, 1000, 144, false, true);
+            UserSettingsStore.Save(expected, path);
+            Check(UserSettingsStore.Load(primary, path) == expected, "settings registry round-trip");
+            using (var key = Registry.CurrentUser.CreateSubKey(path))
+                key.SetValue("Width", 639, RegistryValueKind.DWord);
+            var fallback = UserSettingsStore.Load(primary, path);
+            Check(fallback.Preset == UserSettings.CopyPrimary && fallback.Width == primary.Width,
+                "invalid settings fallback");
+        }
+        finally
+        {
+            Registry.CurrentUser.DeleteSubKeyTree(path, false);
+        }
     }
 
     internal static void Check(bool condition, string name)

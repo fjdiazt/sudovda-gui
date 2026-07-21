@@ -67,7 +67,6 @@ internal sealed class MainForm : Form
 
     private UserSettings _lastValidSettings;
     private bool _suppressResolutionEvents;
-    private bool _settingsSaved;
     private bool _modeValid;
     private bool _busy;
 
@@ -260,9 +259,6 @@ internal sealed class MainForm : Form
 
     internal void PersistSettings()
     {
-        if (_settingsSaved)
-            return;
-
         try
         {
             _saveSettings(_lastValidSettings with
@@ -270,7 +266,6 @@ internal sealed class MainForm : Form
                 MakePrimary = _primaryCheck.Checked,
                 RouteNewWindows = _routingCheck.Checked
             });
-            _settingsSaved = true;
         }
         catch (Exception exception)
         {
@@ -571,13 +566,13 @@ internal sealed class MainForm : Form
             }
         });
     }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
             _resolutionErrors.Dispose();
         base.Dispose(disposing);
     }
-
 
     private sealed record PresetChoice(string Label, string Key, ResolutionSize? Size)
     {

@@ -127,6 +127,9 @@ internal static class SelfTest
         form.PersistSettings();
         Check(saved == new UserSettings("Custom", 2000, 1080, 119, false, false),
             "form settings persistence");
+        width.Text = "2100";
+        form.PersistSettings();
+        Check(saved?.Width == 2100, "settings resave after later edit");
     }
 
     private static void CheckResolutionSettings()

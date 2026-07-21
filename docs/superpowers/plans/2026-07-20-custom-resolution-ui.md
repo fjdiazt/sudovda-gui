@@ -31,7 +31,7 @@
 - Produces: `ResolutionSize`, `UserSettings`, `ResolutionOptions`, `UserSettingsStore`.
 - Consumes: existing `DisplayMode` and `DisplayController.IsSupported`.
 
-- [ ] **Step 1: Write failing checks**
+- [x] **Step 1: Write failing checks**
 
 Add `using Microsoft.Win32;`, call `CheckResolutionSettings();` from `SelfTest.Run`, and add:
 
@@ -76,13 +76,13 @@ private static void CheckResolutionSettings()
 }
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `dotnet run --project src\VrPrivacy\VrPrivacy.csproj -- --self-test`.
 
 Expected: compiler failure naming missing `ResolutionOptions`/`UserSettingsStore`; failure comes from the absent feature.
 
-- [ ] **Step 3: Implement minimum production API**
+- [x] **Step 3: Implement minimum production API**
 
 Create `ResolutionSettings.cs` with these exact types and signatures:
 
@@ -129,13 +129,13 @@ Implementation rules:
 - `Load`: return `UserSettings.Defaults(primary)` for missing/unreadable keys; restore booleans independently; reject invalid preset/mode/refresh as CopyPrimary defaults.
 - `Save`: write `Preset` as `String`, numeric and boolean values as `DWord`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run `dotnet run --project src\VrPrivacy\VrPrivacy.csproj -- --self-test`.
 
 Expected: `Self-test passed.` and temporary registry key removed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src\VrPrivacy\ResolutionSettings.cs src\VrPrivacy\SelfTest.cs
@@ -154,7 +154,7 @@ git commit -m "feat: add custom resolution settings"
 - Consumes: Task 1 settings/options APIs.
 - Produces: `presetCombo`, `widthText`, `heightText`, `refreshCombo`, and a validated `DisplayMode` for existing lifecycle code.
 
-- [ ] **Step 1: Write failing form checks**
+- [x] **Step 1: Write failing form checks**
 
 Replace old `modeCombo` assertions with `CheckResolutionForm();` and add:
 
@@ -196,13 +196,13 @@ private static void CheckResolutionForm()
 }
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `dotnet run --project src\VrPrivacy\VrPrivacy.csproj -- --self-test`.
 
 Expected: compiler failure for missing injectable `MainForm` constructor and `PersistSettings`.
 
-- [ ] **Step 3: Replace combined mode selector**
+- [x] **Step 3: Replace combined mode selector**
 
 Add always-visible controls with exact names and native WinForms types:
 
@@ -241,7 +241,7 @@ internal MainForm(
 
 Default nulls resolve through `DisplayController.GetPrimaryMode`, `UserSettingsStore.Load`, `DisplayController.GetModeChoices`, and `UserSettingsStore.Save`. The injected path performs no driver or registry write.
 
-- [ ] **Step 4: Implement editor state transitions**
+- [x] **Step 4: Implement editor state transitions**
 
 Add a private `PresetChoice(string Label, string Key, ResolutionSize? Size)` record. Populate choices in this order: Copy primary, `ResolutionOptions.DistinctSizes(availableModes)`, Custom. Populate refresh via `ResolutionOptions.RefreshRates(primary.RefreshHz)`.
 
@@ -264,7 +264,7 @@ Use `_suppressResolutionEvents` around programmatic field changes. `OnPresetChan
 _startStopButton.Enabled = !_transitioning && (_session is not null || _modeValid);
 ```
 
-- [ ] **Step 5: Integrate lifecycle and persistence**
+- [x] **Step 5: Integrate lifecycle and persistence**
 
 At the start of `StartAsync`, require `TryReadMode(out var mode)` before opening SudoVDA. Delete the old `ModeChoice` lookup; retain the final `DisplayController.IsSupported(mode)` guard.
 
@@ -293,7 +293,7 @@ internal void PersistSettings()
 
 Call `PersistSettings()` first in `OnFormClosing`; last valid resolution persists even if current textbox text is invalid. Delete old `ModeChoice`.
 
-- [ ] **Step 6: Verify GREEN and refactor**
+- [x] **Step 6: Verify GREEN and refactor**
 
 Run:
 
@@ -305,7 +305,7 @@ dotnet run --project src\VrPrivacy\VrPrivacy.csproj -- --self-test
 
 Expected: both self-tests end `Self-test passed.`; formatter exits `0`; no display topology changes.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src\VrPrivacy\MainForm.cs src\VrPrivacy\SelfTest.cs
@@ -324,11 +324,11 @@ git commit -m "feat: add custom resolution editor"
 - Consumes: completed UI/settings behavior.
 - Produces: accurate usage and verification instructions.
 
-- [ ] **Step 1: Update README**
+- [x] **Step 1: Update README**
 
 Document Preset, Width, Height, Refresh, automatic Custom selection, registry persistence, and Copy-primary intent. Remove `Settings are not persisted.` Replace `Mutation-free checks:` with `Form, protocol, and temporary-registry checks (no display topology mutation):`.
 
-- [ ] **Step 2: Run fresh permitted verification**
+- [x] **Step 2: Run fresh permitted verification**
 
 Run only:
 
@@ -340,7 +340,7 @@ dotnet run --project src\VrPrivacy\VrPrivacy.csproj -c Release --no-build -- --s
 
 Expected: no whitespace errors; build has `0 Warning(s)` and `0 Error(s)`; test ends `Self-test passed.` Do not run `--smoke-test`.
 
-- [ ] **Step 3: Commit docs and checked plan**
+- [x] **Step 3: Commit docs and checked plan**
 
 Mark completed checkboxes in this plan, then:
 
@@ -349,7 +349,7 @@ git add README.md docs\superpowers\plans\2026-07-20-custom-resolution-ui.md
 git commit -m "docs: explain custom resolution controls"
 ```
 
-- [ ] **Step 4: Final branch audit**
+- [x] **Step 4: Final branch audit**
 
 Run:
 

@@ -122,8 +122,10 @@ internal static class UserSettingsStore
             var height = ReadUInt(key, "Height", defaults.Height);
             var refresh = ReadUInt(key, "RefreshHz", defaults.RefreshHz);
 
-            var presetValid = preset is UserSettings.CopyPrimary or UserSettings.Custom ||
-                              ResolutionOptions.TryParsePreset(preset, out _);
+            var presetValid = preset is UserSettings.CopyPrimary or UserSettings.Custom;
+            if (ResolutionOptions.TryParsePreset(preset, out var presetSize))
+                presetValid = presetSize == new ResolutionSize(width, height);
+
             var modeValid = ResolutionOptions.TryParseMode(
                 width.ToString(CultureInfo.InvariantCulture),
                 height.ToString(CultureInfo.InvariantCulture),

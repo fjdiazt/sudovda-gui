@@ -10,18 +10,7 @@ internal static class SelfTest
     {
         Check(new DisplayMode(1920, 1080, 60).ToString() == "1920 x 1080 @ 60 Hz", "display mode formatting");
         CheckResolutionSettings();
-
-        using var form = new MainForm();
-        Check(form.Text == "VR Privacy", "main window title");
-        var modeCombo = form.Controls.Find("modeCombo", true).OfType<ComboBox>().SingleOrDefault();
-        var primaryCheck = form.Controls.Find("primaryCheck", true).OfType<CheckBox>().SingleOrDefault();
-        var routingCheck = form.Controls.Find("routingCheck", true).OfType<CheckBox>().SingleOrDefault();
-        var startStopButton = form.Controls.Find("startStopButton", true).OfType<Button>().SingleOrDefault();
-        Check(modeCombo is not null && modeCombo.SelectedIndex == 0, "copy-primary default");
-        Check(modeCombo?.SelectedItem?.ToString() == "Copy primary", "copy-primary label");
-        Check(primaryCheck?.Checked == true, "make-primary default");
-        Check(routingCheck?.Checked == true, "routing default");
-        Check(startStopButton?.Text == "Start", "start button default");
+        CheckResolutionForm();
 
 
         Check(SudoVdaClient.IoctlAdd == 0x00222000, "ADD IOCTL");
@@ -90,6 +79,56 @@ internal static class SelfTest
         return 1;
     }
 
+    private static void CheckResolutionForm()
+    {
+        var primary = new DisplayMode(3440, 1440, 119);
+        UserSettings? saved = null;
+        using var form = new MainForm(
+            primary,
+            UserSettings.Defaults(primary),
+            [primary, new DisplayMode(1920, 1080, 60)],
+            value => saved = value);
+
+        var preset = form.Controls.Find("presetCombo", true).OfType<ComboBox>().Single();
+        var width = form.Controls.Find("widthText", true).OfType<TextBox>().Single();
+        var height = form.Controls.Find("heightText", true).OfType<TextBox>().Single();
+        var refresh = form.Controls.Find("refreshCombo", true).OfType<ComboBox>().Single();
+        var primaryCheck = form.Controls.Find("primaryCheck", true).OfType<CheckBox>().Single();
+        var routingCheck = form.Controls.Find("routingCheck", true).OfType<CheckBox>().Single();
+        var start = form.Controls.Find("startStopButton", true).OfType<Button>().Single();
+
+        Check(form.Text == "VR Privacy", "main window title");
+        Check(preset.SelectedItem?.ToString() == "Copy primary", "copy-primary default");
+        Check(width.Text == "3440" && height.Text == "1440", "copy-primary dimensions");
+        Check((uint)refresh.SelectedItem! == 119, "copy-primary refresh");
+        Check(primaryCheck.Checked, "make-primary default");
+        Check(routingCheck.Checked, "routing default");
+        Check(start.Text == "Start", "start button default");
+
+        preset.SelectedItem = preset.Items.Cast<object>()
+            .Single(item => item.ToString() == "1920 x 1080");
+        Check(width.Text == "1920" && height.Text == "1080", "preset populates dimensions");
+        width.Text = "2000";
+        Check(preset.SelectedItem?.ToString() == "Custom", "manual edit selects custom");
+        width.Text = "invalid";
+        Check(!start.Enabled, "invalid width disables start");
+        width.Text = "2000";
+        form.SetUiState("Active", false, true);
+        Check(!preset.Enabled && !width.Enabled && !height.Enabled && !refresh.Enabled,
+            "active display locks resolution controls");
+        form.SetUiState("Stopped", false, false);
+        Check(preset.Enabled && width.Enabled && height.Enabled && refresh.Enabled,
+            "stopped display unlocks resolution controls");
+
+        Check(start.Enabled, "valid width enables start");
+
+        primaryCheck.Checked = false;
+        routingCheck.Checked = false;
+        form.PersistSettings();
+        Check(saved == new UserSettings("Custom", 2000, 1080, 119, false, false),
+            "form settings persistence");
+    }
+
     private static void CheckResolutionSettings()
     {
         var primary = new DisplayMode(3440, 1440, 119);
@@ -117,6 +156,11 @@ internal static class SelfTest
             var expected = new UserSettings("Custom", 2000, 1000, 144, false, true);
             UserSettingsStore.Save(expected, path);
             Check(UserSettingsStore.Load(primary, path) == expected, "settings registry round-trip");
+            UserSettingsStore.Save(expected with { Preset = "1920x1080" }, path);
+            var mismatchedPreset = UserSettingsStore.Load(primary, path);
+            Check(mismatchedPreset.Preset == UserSettings.CopyPrimary,
+                "mismatched preset fallback");
+
             using (var key = Registry.CurrentUser.CreateSubKey(path))
                 key.SetValue("Width", 639, RegistryValueKind.DWord);
             var fallback = UserSettingsStore.Load(primary, path);

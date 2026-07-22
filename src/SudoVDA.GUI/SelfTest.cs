@@ -174,6 +174,40 @@ internal static class SelfTest
         Check(rates.Contains(24u) && rates.Contains(500u), "standard refresh rates");
         Check(rates.Contains(119u), "primary refresh inclusion");
 
+        var square = ResolutionOptions.AspectRatio(new ResolutionSize(1000, 1000));
+        Check(square == new ResolutionAspectRatio(1, 1, "Square"), "square aspect classification");
+        var ultrawide = ResolutionOptions.AspectRatio(new ResolutionSize(3440, 1440));
+        Check(ultrawide == new ResolutionAspectRatio(21, 9, "Ultrawide"),
+            "ultrawide aspect classification");
+        var unknown = ResolutionOptions.AspectRatio(new ResolutionSize(1000, 700));
+        Check(unknown == new ResolutionAspectRatio(10, 7, null), "unknown exact aspect classification");
+
+        var aspectSortedSizes = ResolutionOptions.DistinctSizes(
+        [
+            new DisplayMode(1920, 1080, 60),
+            new DisplayMode(1920, 1200, 60),
+            new DisplayMode(1024, 768, 60),
+            new DisplayMode(1280, 1024, 60),
+            new DisplayMode(1000, 1000, 60)
+        ]);
+        Check(aspectSortedSizes.SequenceEqual(
+        [
+            new ResolutionSize(1000, 1000),
+            new ResolutionSize(1280, 1024),
+            new ResolutionSize(1024, 768),
+            new ResolutionSize(1920, 1200),
+            new ResolutionSize(1920, 1080)
+        ]), "resolution aspect-first ordering");
+        var aspects = ResolutionOptions.AspectRatios(aspectSortedSizes);
+        Check(aspects.Select(value => value.FilterLabel).SequenceEqual(
+        [
+            "1:1 (Square)",
+            "5:4 (Standard)",
+            "4:3 (Standard)",
+            "16:10 (Wide)",
+            "16:9 (Wide)"
+        ]), "aspect filter ordering and labels");
+
         var sizes = ResolutionOptions.DistinctSizes(
         [
             new DisplayMode(1920, 1080, 60),

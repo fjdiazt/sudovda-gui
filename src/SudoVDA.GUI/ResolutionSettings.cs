@@ -10,6 +10,17 @@ internal readonly record struct ResolutionSize(uint Width, uint Height)
     public override string ToString() => $"{Width} x {Height}";
 }
 
+internal readonly record struct ResolutionAspectRatio(
+    uint Numerator,
+    uint Denominator,
+    string? Label)
+{
+    internal double Value => (double)Numerator / Denominator;
+    internal string Key => $"{Numerator}:{Denominator}";
+    internal string FilterLabel => Label is null ? Key : $"{Key} ({Label})";
+    internal string ResolutionLabel => Label is null ? Key : $"{Key} {Label}";
+}
+
 internal sealed record UserSettings(
     string Preset,
     uint Width,
@@ -30,6 +41,18 @@ internal sealed record UserSettings(
 
 internal static class ResolutionOptions
 {
+    private static readonly ResolutionAspectRatio[] KnownAspectRatios =
+    [
+        new(1, 1, "Square"),
+        new(5, 4, "Standard"),
+        new(4, 3, "Standard"),
+        new(3, 2, "Classic"),
+        new(16, 10, "Wide"),
+        new(16, 9, "Wide"),
+        new(21, 9, "Ultrawide"),
+        new(32, 9, "Super ultrawide")
+    ];
+
     private static readonly uint[] StandardRates =
     [
         24, 25, 30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240, 360, 480, 500
@@ -39,9 +62,38 @@ internal static class ResolutionOptions
         modes
             .Select(mode => new ResolutionSize(mode.Width, mode.Height))
             .Distinct()
-            .OrderBy(size => size.Width)
+            .OrderBy(size => AspectRatio(size).Value)
+            .ThenBy(size => size.Width)
             .ThenBy(size => size.Height)
             .ToArray();
+
+    internal static ResolutionAspectRatio AspectRatio(ResolutionSize size)
+    {
+        var divisor = GreatestCommonDivisor(size.Width, size.Height);
+        var exact = new ResolutionAspectRatio(size.Width / divisor, size.Height / divisor, null);
+        var nearest = KnownAspectRatios.MinBy(candidate =>
+            Math.Abs(exact.Value - candidate.Value) / candidate.Value);
+        return Math.Abs(exact.Value - nearest.Value) / nearest.Value <= 0.03
+            ? nearest
+            : exact;
+    }
+
+    internal static IReadOnlyList<ResolutionAspectRatio> AspectRatios(
+        IEnumerable<ResolutionSize> sizes) =>
+        sizes
+            .Select(AspectRatio)
+            .Distinct()
+            .OrderBy(value => value.Value)
+            .ThenBy(value => value.Numerator)
+            .ThenBy(value => value.Denominator)
+            .ToArray();
+
+    private static uint GreatestCommonDivisor(uint left, uint right)
+    {
+        while (right != 0)
+            (left, right) = (right, left % right);
+        return left;
+    }
 
     internal static IReadOnlyList<uint> RefreshRates(uint primaryRefresh) =>
         StandardRates

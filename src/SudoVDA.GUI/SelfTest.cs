@@ -130,6 +130,10 @@ internal static class SelfTest
         Check(window.Title == "SudoVDA", "main window title");
         Check(Equals(window.Background, window.FindResource("WindowBackgroundBrush")),
             "dark window theme");
+        aspect.ApplyTemplate();
+        Check(aspect.Template.FindName("DarkComboBackground", aspect) is Border background &&
+              Equals(background.Background, window.FindResource("ControlBackgroundBrush")),
+            "dark combo box chrome");
         Check(aspect.SelectedItem?.ToString() == "All aspect ratios", "all-aspects default");
         Check(preset.SelectedItem?.ToString() == "Match primary display", "match-primary default");
         Check(width.Text == "3440" && height.Text == "1440", "copy-primary dimensions");

@@ -6,6 +6,13 @@ internal sealed class MainForm : Form
 {
     private static readonly Guid MonitorGuid = new("8d6a8a70-67e9-4af0-9e57-0fcb401ca31b");
 
+    private readonly ComboBox _aspectCombo = new()
+    {
+        Name = "aspectCombo",
+        Dock = DockStyle.Fill,
+        DropDownStyle = ComboBoxStyle.DropDownList
+    };
+
     private readonly ComboBox _presetCombo = new()
     {
         Name = "presetCombo",
@@ -73,6 +80,7 @@ internal sealed class MainForm : Form
     private readonly DisplayMode _primaryMode;
     private readonly Action<UserSettings> _saveSettings;
 
+    private IReadOnlyList<ResolutionSize> _availableSizes = [];
     private UserSettings _lastValidSettings;
     private bool _suppressResolutionEvents;
     private bool _modeValid;
@@ -98,7 +106,7 @@ internal sealed class MainForm : Form
         _saveSettings = saveSettings ?? (value => UserSettingsStore.Save(value));
 
         Text = "SudoVDA";
-        ClientSize = new Size(500, 280);
+        ClientSize = new Size(500, 330);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -110,22 +118,27 @@ internal sealed class MainForm : Form
             Dock = DockStyle.Fill,
             AutoSize = true,
             ColumnCount = 3,
-            RowCount = 4,
+            RowCount = 6,
             Padding = new Padding(8)
         };
         for (var column = 0; column < 3; column++)
             resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
+        var aspectLabel = CreateFieldLabel("aspectLabel", "Aspect ratio");
+        resolutionLayout.Controls.Add(aspectLabel, 0, 0);
+        resolutionLayout.SetColumnSpan(aspectLabel, 3);
+        resolutionLayout.Controls.Add(_aspectCombo, 0, 1);
+        resolutionLayout.SetColumnSpan(_aspectCombo, 3);
         var presetLabel = CreateFieldLabel("presetLabel", "Resolution preset");
-        resolutionLayout.Controls.Add(presetLabel, 0, 0);
+        resolutionLayout.Controls.Add(presetLabel, 0, 2);
         resolutionLayout.SetColumnSpan(presetLabel, 3);
-        resolutionLayout.Controls.Add(_presetCombo, 0, 1);
+        resolutionLayout.Controls.Add(_presetCombo, 0, 3);
         resolutionLayout.SetColumnSpan(_presetCombo, 3);
-        resolutionLayout.Controls.Add(CreateFieldLabel("widthLabel", "Width"), 0, 2);
-        resolutionLayout.Controls.Add(CreateFieldLabel("heightLabel", "Height"), 1, 2);
-        resolutionLayout.Controls.Add(CreateFieldLabel("refreshLabel", "Refresh rate"), 2, 2);
-        resolutionLayout.Controls.Add(_widthText, 0, 3);
-        resolutionLayout.Controls.Add(_heightText, 1, 3);
-        resolutionLayout.Controls.Add(_refreshCombo, 2, 3);
+        resolutionLayout.Controls.Add(CreateFieldLabel("widthLabel", "Width"), 0, 4);
+        resolutionLayout.Controls.Add(CreateFieldLabel("heightLabel", "Height"), 1, 4);
+        resolutionLayout.Controls.Add(CreateFieldLabel("refreshLabel", "Refresh rate"), 2, 4);
+        resolutionLayout.Controls.Add(_widthText, 0, 5);
+        resolutionLayout.Controls.Add(_heightText, 1, 5);
+        resolutionLayout.Controls.Add(_refreshCombo, 2, 5);
 
         var displayGroup = new GroupBox
         {
@@ -185,6 +198,7 @@ internal sealed class MainForm : Form
         Controls.Add(layout);
 
         LoadResolutionControls(availableModes ?? DisplayController.GetModeChoices(), _lastValidSettings);
+        _aspectCombo.SelectedIndexChanged += (_, _) => OnAspectChanged();
         _presetCombo.SelectedIndexChanged += (_, _) => OnPresetChanged();
         _widthText.TextChanged += (_, _) => OnDimensionChanged();
         _heightText.TextChanged += (_, _) => OnDimensionChanged();
@@ -207,10 +221,12 @@ internal sealed class MainForm : Form
     private void LoadResolutionControls(IReadOnlyList<DisplayMode> modes, UserSettings settings)
     {
         _suppressResolutionEvents = true;
-        _presetCombo.Items.Add(new PresetChoice("Copy primary", UserSettings.CopyPrimary, null));
-        foreach (var size in ResolutionOptions.DistinctSizes(modes))
-            _presetCombo.Items.Add(new PresetChoice(size.ToString(), size.Key, size));
-        _presetCombo.Items.Add(new PresetChoice("Custom", UserSettings.Custom, null));
+        _availableSizes = ResolutionOptions.DistinctSizes(modes);
+        _aspectCombo.Items.Add(new AspectFilterChoice("All aspect ratios", null));
+        foreach (var ratio in ResolutionOptions.AspectRatios(_availableSizes))
+            _aspectCombo.Items.Add(new AspectFilterChoice(ratio.FilterLabel, ratio));
+        _aspectCombo.SelectedIndex = 0;
+        RebuildPresetChoices(settings.Preset, false);
 
         foreach (var rate in ResolutionOptions.RefreshRates(_primaryMode.RefreshHz))
             _refreshCombo.Items.Add(rate);
@@ -227,6 +243,54 @@ internal sealed class MainForm : Form
         _primaryCheck.Checked = settings.MakePrimary;
         _routingCheck.Checked = settings.RouteNewWindows;
         _suppressResolutionEvents = false;
+    }
+
+    private void OnAspectChanged()
+    {
+        if (_suppressResolutionEvents)
+            return;
+
+        var preferredKey = _presetCombo.SelectedItem is PresetChoice { Size: not null } choice
+            ? choice.Key
+            : null;
+        RebuildPresetChoices(preferredKey, true);
+        OnPresetChanged();
+    }
+
+    private void RebuildPresetChoices(string? preferredKey, bool selectFirstNormal)
+    {
+        var suppressed = _suppressResolutionEvents;
+        _suppressResolutionEvents = true;
+        var ratio = (_aspectCombo.SelectedItem as AspectFilterChoice)?.Ratio;
+        var sizes = ratio is null
+            ? _availableSizes
+            : _availableSizes.Where(size => ResolutionOptions.AspectRatio(size) == ratio).ToArray();
+
+        _presetCombo.BeginUpdate();
+        _presetCombo.Items.Clear();
+        _presetCombo.Items.Add(new PresetChoice(
+            "Match primary display", UserSettings.CopyPrimary, null));
+        foreach (var size in sizes)
+        {
+            var aspect = ResolutionOptions.AspectRatio(size);
+            var label = ratio is null
+                ? $"{size} ({aspect.ResolutionLabel})"
+                : size.ToString();
+            _presetCombo.Items.Add(new PresetChoice(label, size.Key, size));
+        }
+        _presetCombo.Items.Add(new PresetChoice("Custom", UserSettings.Custom, null));
+
+        var choice = _presetCombo.Items.Cast<PresetChoice>()
+            .SingleOrDefault(item => item.Key == preferredKey);
+        if (selectFirstNormal && choice?.Size is null)
+            choice = _presetCombo.Items.Cast<PresetChoice>().FirstOrDefault(item => item.Size is not null);
+        choice ??= _presetCombo.Items.Cast<PresetChoice>()
+            .FirstOrDefault(item => item.Size is not null);
+        choice ??= _presetCombo.Items.Cast<PresetChoice>()
+            .Single(item => item.Key == UserSettings.CopyPrimary);
+        _presetCombo.SelectedItem = choice;
+        _presetCombo.EndUpdate();
+        _suppressResolutionEvents = suppressed;
     }
 
     private void OnPresetChanged()
@@ -593,6 +657,7 @@ internal sealed class MainForm : Form
                     : Color.Firebrick;
         _busy = busy;
         var resolutionEnabled = !busy && !active;
+        _aspectCombo.Enabled = resolutionEnabled;
         _presetCombo.Enabled = resolutionEnabled;
         _widthText.Enabled = resolutionEnabled;
         _heightText.Enabled = resolutionEnabled;
@@ -640,6 +705,11 @@ internal sealed class MainForm : Form
         if (disposing)
             _resolutionErrors.Dispose();
         base.Dispose(disposing);
+    }
+
+    private sealed record AspectFilterChoice(string Label, ResolutionAspectRatio? Ratio)
+    {
+        public override string ToString() => Label;
     }
 
     private sealed record PresetChoice(string Label, string Key, ResolutionSize? Size)

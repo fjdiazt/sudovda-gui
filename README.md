@@ -21,7 +21,8 @@ dotnet run --project src\SudoVDA.GUI\SudoVDA.GUI.csproj
 
 UI controls:
 
-- `Resolution preset`: choose `Copy primary`, a discovered/common resolution, or `Custom`.
+- `Aspect ratio`: filter discovered/common resolutions. `All aspect ratios` groups and annotates presets by ratio.
+- `Resolution preset`: choose `Match primary display`, a discovered/common resolution, or `Custom`.
 - `Width` / `Height`: freely typed integer dimensions. Valid ranges are 640–7680 and 480–4320.
 - `Refresh rate`: choose a supported integer rate from the dropdown.
 - `Make primary`: temporarily makes the virtual monitor primary. Enabled by default for fullscreen-game compatibility.
@@ -31,7 +32,7 @@ UI controls:
 
 Display settings appear in the `Display` group. Lifecycle options appear in the `Behavior` group.
 
-Selecting a preset populates Width and Height. Editing either dimension selects `Custom`. Form choices persist per user in `HKCU\Software\VRPrivacy`; `Copy primary` rereads the primary mode on the next launch.
+Selecting a resolution preset populates Width and Height. `Match primary display` also populates Refresh from the current primary display. Editing either dimension selects `Custom`. Form choices persist per user in `HKCU\Software\VRPrivacy`; the internal `CopyPrimary` setting rereads the primary mode on the next launch.
 
 Closing the app performs the same cleanup as `Stop`.
 

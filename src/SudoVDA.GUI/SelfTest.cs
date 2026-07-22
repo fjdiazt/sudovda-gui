@@ -88,10 +88,18 @@ internal static class SelfTest
         using var form = new MainForm(
             primary,
             UserSettings.Defaults(primary),
-            [primary, new DisplayMode(1920, 1080, 60)],
+            [
+                primary,
+                new DisplayMode(1920, 1080, 60),
+                new DisplayMode(1920, 1200, 60),
+                new DisplayMode(1024, 768, 60),
+                new DisplayMode(1280, 1024, 60),
+                new DisplayMode(1000, 1000, 60)
+            ],
             value => saved = value);
 
         var preset = form.Controls.Find("presetCombo", true).OfType<ComboBox>().Single();
+        var aspect = form.Controls.Find("aspectCombo", true).OfType<ComboBox>().Single();
         var width = form.Controls.Find("widthText", true).OfType<TextBox>().Single();
         var height = form.Controls.Find("heightText", true).OfType<TextBox>().Single();
         var refresh = form.Controls.Find("refreshCombo", true).OfType<ComboBox>().Single();
@@ -107,9 +115,36 @@ internal static class SelfTest
         var statusIndicator = form.Controls.Find("statusIndicator", true).OfType<Label>().SingleOrDefault();
 
         Check(form.Text == "SudoVDA", "main window title");
-        Check(preset.SelectedItem?.ToString() == "Copy primary", "copy-primary default");
+        Check(aspect.SelectedItem?.ToString() == "All aspect ratios", "all-aspects default");
+        Check(preset.SelectedItem?.ToString() == "Match primary display", "match-primary default");
         Check(width.Text == "3440" && height.Text == "1440", "copy-primary dimensions");
         Check((uint)refresh.SelectedItem! == 119, "copy-primary refresh");
+        Check(aspect.Items.Cast<object>().Select(item => item.ToString()).SequenceEqual(
+        [
+            "All aspect ratios",
+            "1:1 (Square)",
+            "5:4 (Standard)",
+            "4:3 (Standard)",
+            "16:10 (Wide)",
+            "16:9 (Wide)",
+            "21:9 (Ultrawide)"
+        ]), "aspect dropdown contents");
+        Check(preset.Items.Cast<object>().Any(item => item.ToString() ==
+            "1920 x 1080 (16:9 Wide)"), "all-aspects preset annotation");
+
+        aspect.SelectedItem = aspect.Items.Cast<object>()
+            .Single(item => item.ToString() == "16:9 (Wide)");
+        Check(preset.Items.Cast<object>().Select(item => item.ToString()).SequenceEqual(
+        [
+            "Match primary display",
+            "1920 x 1080",
+            "Custom"
+        ]), "filtered preset contents");
+        Check(preset.SelectedItem?.ToString() == "1920 x 1080",
+            "filter selects first matching preset");
+        aspect.SelectedIndex = 0;
+        Check(preset.SelectedItem?.ToString() == "1920 x 1080 (16:9 Wide)",
+            "all-aspects preserves selected preset");
         Check(primaryCheck.Checked, "make-primary default");
         Check(routingCheck.Checked, "routing default");
         Check(start.Text == "Start", "start button default");
@@ -119,16 +154,16 @@ internal static class SelfTest
         if (resolutionLayout is not null)
         {
             Check(resolutionLayout.GetPositionFromControl(width).Column == 0 &&
-                  resolutionLayout.GetPositionFromControl(width).Row == 3 &&
+                  resolutionLayout.GetPositionFromControl(width).Row == 5 &&
                   resolutionLayout.GetPositionFromControl(height).Column == 1 &&
-                  resolutionLayout.GetPositionFromControl(height).Row == 3 &&
+                  resolutionLayout.GetPositionFromControl(height).Row == 5 &&
                   resolutionLayout.GetPositionFromControl(refresh).Column == 2 &&
-                  resolutionLayout.GetPositionFromControl(refresh).Row == 3,
+                  resolutionLayout.GetPositionFromControl(refresh).Row == 5,
                 "dimension controls share one row");
             Check(widthLabel is not null && heightLabel is not null && refreshLabel is not null &&
-                  resolutionLayout.GetPositionFromControl(widthLabel).Row == 2 &&
-                  resolutionLayout.GetPositionFromControl(heightLabel).Row == 2 &&
-                  resolutionLayout.GetPositionFromControl(refreshLabel).Row == 2,
+                  resolutionLayout.GetPositionFromControl(widthLabel).Row == 4 &&
+                  resolutionLayout.GetPositionFromControl(heightLabel).Row == 4 &&
+                  resolutionLayout.GetPositionFromControl(refreshLabel).Row == 4,
                 "dimension labels share row above controls");
         }
         Check(statusIndicator?.ForeColor == Color.Firebrick, "stopped status color");
@@ -141,7 +176,7 @@ internal static class SelfTest
         form.SetUiState("Stopped", false, false);
 
         preset.SelectedItem = preset.Items.Cast<object>()
-            .Single(item => item.ToString() == "1920 x 1080");
+            .Single(item => item.ToString() == "1920 x 1080 (16:9 Wide)");
         Check(width.Text == "1920" && height.Text == "1080", "preset populates dimensions");
         width.Text = "2000";
         Check(preset.SelectedItem?.ToString() == "Custom", "manual edit selects custom");
@@ -149,10 +184,10 @@ internal static class SelfTest
         Check(!start.Enabled, "invalid width disables start");
         width.Text = "2000";
         form.SetUiState("Active", false, true);
-        Check(!preset.Enabled && !width.Enabled && !height.Enabled && !refresh.Enabled,
+        Check(!aspect.Enabled && !preset.Enabled && !width.Enabled && !height.Enabled && !refresh.Enabled,
             "active display locks resolution controls");
         form.SetUiState("Stopped", false, false);
-        Check(preset.Enabled && width.Enabled && height.Enabled && refresh.Enabled,
+        Check(aspect.Enabled && preset.Enabled && width.Enabled && height.Enabled && refresh.Enabled,
             "stopped display unlocks resolution controls");
 
         Check(start.Enabled, "valid width enables start");

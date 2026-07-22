@@ -24,6 +24,7 @@ UI controls:
 - `Aspect ratio`: filter discovered/common resolutions. `All aspect ratios` groups and annotates presets by ratio.
 - `Resolution preset`: choose `Match primary display`, a discovered/common resolution, or `Custom`.
 - `Width` / `Height`: freely typed integer dimensions. Valid ranges are 640–7680 and 480–4320.
+- `🔓` / `🔒`: toggle proportional Width/Height editing. Lock state is not saved.
 - `Refresh rate`: choose a supported integer rate from the dropdown.
 - `Make primary`: temporarily makes the virtual monitor primary. Enabled by default for fullscreen-game compatibility.
 - `Route new windows`: moves eligible top-level windows first shown after start. Enabled by default.
@@ -33,6 +34,8 @@ UI controls:
 Display settings appear in the `Display` group. Lifecycle options appear in the `Behavior` group.
 
 Selecting a resolution preset populates Width and Height. `Match primary display` also populates Refresh from the current primary display. Editing either dimension selects `Custom`. Form choices persist per user in `HKCU\Software\VRPrivacy`; the internal `CopyPrimary` setting rereads the primary mode on the next launch.
+
+When aspect-ratio lock is enabled, editing either dimension rounds the other to the nearest whole pixel while preserving the captured ratio.
 
 Closing the app performs the same cleanup as `Stop`.
 

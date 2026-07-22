@@ -13,6 +13,7 @@ internal static class SelfTest
         Check(new DisplayMode(1920, 1080, 60).ToString() == "1920 x 1080 @ 60 Hz", "display mode formatting");
         CheckResolutionSettings();
         CheckResolutionForm();
+        CheckAspectLockForm();
 
 
         Check(SudoVdaClient.IoctlAdd == 0x00222000, "ADD IOCTL");
@@ -160,13 +161,14 @@ internal static class SelfTest
                   resolutionLayout.GetPositionFromControl(width).Row == 5 &&
                   resolutionLayout.GetPositionFromControl(height).Column == 1 &&
                   resolutionLayout.GetPositionFromControl(height).Row == 5 &&
-                  resolutionLayout.GetPositionFromControl(refresh).Column == 2 &&
+                  resolutionLayout.GetPositionFromControl(refresh).Column == 3 &&
                   resolutionLayout.GetPositionFromControl(refresh).Row == 5,
                 "dimension controls share one row");
             Check(widthLabel is not null && heightLabel is not null && refreshLabel is not null &&
                   resolutionLayout.GetPositionFromControl(widthLabel).Row == 4 &&
                   resolutionLayout.GetPositionFromControl(heightLabel).Row == 4 &&
-                  resolutionLayout.GetPositionFromControl(refreshLabel).Row == 4,
+                  resolutionLayout.GetPositionFromControl(refreshLabel).Row == 4 &&
+                  resolutionLayout.GetPositionFromControl(refreshLabel).Column == 3,
                 "dimension labels share row above controls");
         }
         Check(statusIndicator?.ForeColor == Color.Firebrick, "stopped status color");
@@ -203,6 +205,58 @@ internal static class SelfTest
         width.Text = "2100";
         form.PersistSettings();
         Check(saved?.Width == 2100, "settings resave after later edit");
+    }
+
+    private static void CheckAspectLockForm()
+    {
+        var primary = new DisplayMode(1920, 1080, 60);
+        using var form = new MainForm(
+            primary,
+            UserSettings.Defaults(primary),
+            [primary, new DisplayMode(1920, 1200, 60)],
+            _ => { });
+
+        var preset = form.Controls.Find("presetCombo", true).OfType<ComboBox>().Single();
+        var width = form.Controls.Find("widthText", true).OfType<TextBox>().Single();
+        var height = form.Controls.Find("heightText", true).OfType<TextBox>().Single();
+        var aspectLock = form.Controls.Find("aspectLockButton", true).OfType<CheckBox>().Single();
+        var layout = form.Controls.Find("resolutionLayout", true).OfType<TableLayoutPanel>().Single();
+
+        Check(!aspectLock.Checked && aspectLock.Text == "🔓" &&
+              aspectLock.AccessibleName == "Lock aspect ratio",
+            "aspect lock default");
+        Check(layout.ColumnCount == 4 &&
+              layout.GetPositionFromControl(width).Column == 0 &&
+              layout.GetPositionFromControl(height).Column == 1 &&
+              layout.GetPositionFromControl(aspectLock).Column == 2,
+            "aspect lock layout");
+
+        aspectLock.Checked = true;
+        Check(aspectLock.Text == "🔒" &&
+              aspectLock.AccessibleName == "Unlock aspect ratio",
+            "aspect lock enabled");
+
+        width.Text = "2000";
+        Check(height.Text == "1125" && preset.SelectedItem?.ToString() == "Custom",
+            "locked width updates height");
+        height.Text = "1200";
+        Check(width.Text == "2133", "locked height updates width");
+
+        preset.SelectedItem = preset.Items.Cast<object>()
+            .Single(item => item.ToString() == "1920 x 1200 (16:10 Wide)");
+        width.Text = "2000";
+        Check(height.Text == "1250", "preset refreshes locked ratio");
+
+        aspectLock.Checked = false;
+        width.Text = "invalid";
+        aspectLock.Checked = true;
+        Check(!aspectLock.Checked && aspectLock.Text == "🔓",
+            "invalid dimensions refuse aspect lock");
+
+        form.SetUiState("Active", false, true);
+        Check(!aspectLock.Enabled, "active display locks aspect button");
+        form.SetUiState("Stopped", false, false);
+        Check(aspectLock.Enabled, "stopped display unlocks aspect button");
     }
 
     private static void CheckResolutionSettings()

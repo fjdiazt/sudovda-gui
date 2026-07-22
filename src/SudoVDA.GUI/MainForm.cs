@@ -29,6 +29,17 @@ internal sealed class MainForm : Form
         Name = "heightText",
         Dock = DockStyle.Fill
     };
+    private readonly CheckBox _aspectLockButton = new()
+    {
+        Name = "aspectLockButton",
+        Appearance = Appearance.Button,
+        Text = "🔓",
+        AccessibleName = "Lock aspect ratio",
+        TextAlign = ContentAlignment.MiddleCenter,
+        Dock = DockStyle.Fill,
+        AutoSize = true
+    };
+    private readonly ToolTip _toolTip = new();
     private readonly ComboBox _refreshCombo = new()
     {
         Name = "refreshCombo",
@@ -81,6 +92,7 @@ internal sealed class MainForm : Form
     private readonly Action<UserSettings> _saveSettings;
 
     private IReadOnlyList<ResolutionSize> _availableSizes = [];
+    private ResolutionSize? _lockedAspectRatio;
     private UserSettings _lastValidSettings;
     private bool _suppressResolutionEvents;
     private bool _modeValid;
@@ -117,28 +129,31 @@ internal sealed class MainForm : Form
             Name = "resolutionLayout",
             Dock = DockStyle.Fill,
             AutoSize = true,
-            ColumnCount = 3,
+            ColumnCount = 4,
             RowCount = 6,
             Padding = new Padding(8)
         };
-        for (var column = 0; column < 3; column++)
-            resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
+        resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
+        resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
+        resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
         var aspectLabel = CreateFieldLabel("aspectLabel", "Aspect ratio");
         resolutionLayout.Controls.Add(aspectLabel, 0, 0);
-        resolutionLayout.SetColumnSpan(aspectLabel, 3);
+        resolutionLayout.SetColumnSpan(aspectLabel, 4);
         resolutionLayout.Controls.Add(_aspectCombo, 0, 1);
-        resolutionLayout.SetColumnSpan(_aspectCombo, 3);
+        resolutionLayout.SetColumnSpan(_aspectCombo, 4);
         var presetLabel = CreateFieldLabel("presetLabel", "Resolution preset");
         resolutionLayout.Controls.Add(presetLabel, 0, 2);
-        resolutionLayout.SetColumnSpan(presetLabel, 3);
+        resolutionLayout.SetColumnSpan(presetLabel, 4);
         resolutionLayout.Controls.Add(_presetCombo, 0, 3);
-        resolutionLayout.SetColumnSpan(_presetCombo, 3);
+        resolutionLayout.SetColumnSpan(_presetCombo, 4);
         resolutionLayout.Controls.Add(CreateFieldLabel("widthLabel", "Width"), 0, 4);
         resolutionLayout.Controls.Add(CreateFieldLabel("heightLabel", "Height"), 1, 4);
-        resolutionLayout.Controls.Add(CreateFieldLabel("refreshLabel", "Refresh rate"), 2, 4);
+        resolutionLayout.Controls.Add(CreateFieldLabel("refreshLabel", "Refresh rate"), 3, 4);
         resolutionLayout.Controls.Add(_widthText, 0, 5);
         resolutionLayout.Controls.Add(_heightText, 1, 5);
-        resolutionLayout.Controls.Add(_refreshCombo, 2, 5);
+        resolutionLayout.Controls.Add(_aspectLockButton, 2, 5);
+        resolutionLayout.Controls.Add(_refreshCombo, 3, 5);
 
         var displayGroup = new GroupBox
         {
@@ -200,13 +215,15 @@ internal sealed class MainForm : Form
         LoadResolutionControls(availableModes ?? DisplayController.GetModeChoices(), _lastValidSettings);
         _aspectCombo.SelectedIndexChanged += (_, _) => OnAspectChanged();
         _presetCombo.SelectedIndexChanged += (_, _) => OnPresetChanged();
-        _widthText.TextChanged += (_, _) => OnDimensionChanged();
-        _heightText.TextChanged += (_, _) => OnDimensionChanged();
+        _widthText.TextChanged += (_, _) => OnDimensionChanged(true);
+        _heightText.TextChanged += (_, _) => OnDimensionChanged(false);
+        _aspectLockButton.CheckedChanged += (_, _) => OnAspectLockChanged();
         _refreshCombo.SelectedIndexChanged += (_, _) => ValidateResolution();
         _primaryCheck.CheckedChanged += (_, _) => UpdatePersistedChecks();
         _routingCheck.CheckedChanged += (_, _) => UpdatePersistedChecks();
         _startStopButton.Click += async (_, _) => await ToggleAsync();
         FormClosing += OnFormClosing;
+        UpdateAspectLockButton();
         ValidateResolution();
     }
 
@@ -305,13 +322,83 @@ internal sealed class MainForm : Form
         ValidateResolution();
     }
 
-    private void OnDimensionChanged()
+    private void OnDimensionChanged(bool widthChanged)
     {
         if (_suppressResolutionEvents)
             return;
 
+        if (_aspectLockButton.Checked &&
+            _lockedAspectRatio is { } ratio &&
+            TryScaleLockedDimension(
+                widthChanged ? _widthText.Text : _heightText.Text,
+                ratio,
+                widthChanged,
+                out var scaled))
+        {
+            var suppressed = _suppressResolutionEvents;
+            _suppressResolutionEvents = true;
+            if (widthChanged)
+                _heightText.Text = scaled.ToString();
+            else
+                _widthText.Text = scaled.ToString();
+            _suppressResolutionEvents = suppressed;
+        }
+
         SelectPreset(UserSettings.Custom);
         ValidateResolution();
+    }
+
+    private void OnAspectLockChanged()
+    {
+        if (_suppressResolutionEvents)
+            return;
+
+        if (_aspectLockButton.Checked && TryReadMode(out var mode))
+        {
+            _lockedAspectRatio = new ResolutionSize(mode.Width, mode.Height);
+        }
+        else
+        {
+            _lockedAspectRatio = null;
+            if (_aspectLockButton.Checked)
+            {
+                _suppressResolutionEvents = true;
+                _aspectLockButton.Checked = false;
+                _suppressResolutionEvents = false;
+            }
+        }
+
+        UpdateAspectLockButton();
+    }
+
+    private static bool TryScaleLockedDimension(
+        string text,
+        ResolutionSize ratio,
+        bool widthChanged,
+        out uint scaled)
+    {
+        scaled = 0;
+        if (!uint.TryParse(text.Trim(), out var input))
+            return false;
+
+        var value = widthChanged
+            ? input * (double)ratio.Height / ratio.Width
+            : input * (double)ratio.Width / ratio.Height;
+        if (value < 1 || value > uint.MaxValue)
+            return false;
+
+        scaled = (uint)Math.Round(value, MidpointRounding.AwayFromZero);
+        return true;
+    }
+
+    private void UpdateAspectLockButton()
+    {
+        var locked = _aspectLockButton.Checked && _lockedAspectRatio is not null;
+        _aspectLockButton.Text = locked ? "🔒" : "🔓";
+        _aspectLockButton.AccessibleName = locked
+            ? "Unlock aspect ratio"
+            : "Lock aspect ratio";
+        _toolTip.SetToolTip(_aspectLockButton, _aspectLockButton.AccessibleName);
     }
 
     private void SetModeText(DisplayMode mode, bool copyRefresh)
@@ -322,6 +409,8 @@ internal sealed class MainForm : Form
         _heightText.Text = mode.Height.ToString();
         if (copyRefresh)
             _refreshCombo.SelectedItem = mode.RefreshHz;
+        if (_aspectLockButton.Checked)
+            _lockedAspectRatio = new ResolutionSize(mode.Width, mode.Height);
         _suppressResolutionEvents = suppressed;
     }
 
@@ -658,6 +747,7 @@ internal sealed class MainForm : Form
         _busy = busy;
         var resolutionEnabled = !busy && !active;
         _aspectCombo.Enabled = resolutionEnabled;
+        _aspectLockButton.Enabled = resolutionEnabled;
         _presetCombo.Enabled = resolutionEnabled;
         _widthText.Enabled = resolutionEnabled;
         _heightText.Enabled = resolutionEnabled;
@@ -703,7 +793,10 @@ internal sealed class MainForm : Form
     protected override void Dispose(bool disposing)
     {
         if (disposing)
+        {
+            _toolTip.Dispose();
             _resolutionErrors.Dispose();
+        }
         base.Dispose(disposing);
     }
 

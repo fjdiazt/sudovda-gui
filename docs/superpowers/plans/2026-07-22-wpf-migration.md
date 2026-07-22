@@ -36,7 +36,7 @@
 - Produces: `App : Application`, `MainWindow : Window`, and named WPF controls matching the existing logical names.
 - Preserves: `MainWindow(DisplayMode?, UserSettings?, IReadOnlyList<DisplayMode>?, Action<UserSettings>?)`, `PersistSettings()`, and `SetUiState(...)` for tests.
 
-- [ ] **Step 1: Add a failing pure-WPF assembly check**
+- [x] **Step 1: Add a failing pure-WPF assembly check**
 
 At the start of `SelfTest.Run()`, add:
 
@@ -46,7 +46,7 @@ Check(!Assembly.GetExecutingAssembly().GetReferencedAssemblies()
     "no Windows Forms assembly reference");
 ```
 
-- [ ] **Step 2: Run the self-test and verify RED**
+- [x] **Step 2: Run the self-test and verify RED**
 
 Run:
 
@@ -56,7 +56,7 @@ dotnet run --project src\SudoVDA.GUI\SudoVDA.GUI.csproj -c Release -- --self-tes
 
 Expected: `FAIL: no Windows Forms assembly reference` and a nonzero exit code.
 
-- [ ] **Step 3: Switch the project SDK UI flag**
+- [x] **Step 3: Switch the project SDK UI flag**
 
 Replace:
 
@@ -72,7 +72,7 @@ with:
 
 Delete `Program.cs`; WPF's generated entry point will call `App.OnStartup`.
 
-- [ ] **Step 4: Add the WPF host and CLI dispatch**
+- [x] **Step 4: Add the WPF host and CLI dispatch**
 
 Create `App.xaml` with `x:Class="SudoVDA.GUI.App"`, no `StartupUri`, and dark brush/control resources. Required brush keys:
 
@@ -121,7 +121,7 @@ internal partial class App : Application
 }
 ```
 
-- [ ] **Step 5: Declare the complete dark WPF visual tree**
+- [x] **Step 5: Declare the complete dark WPF visual tree**
 
 Create `MainWindow.xaml` as a fixed-size centered WPF window. Use a root `Grid` containing two `GroupBox` controls and a footer. Declare these exact names and types:
 
@@ -143,7 +143,7 @@ Create `MainWindow.xaml` as a fixed-size centered WPF window. Use a root `Grid` 
 
 Use `Label` elements associated through `Target` for Aspect ratio, Resolution preset, Width, Height, and Refresh rate. Apply the dark resources through local implicit WPF styles; include visible hover, focus, disabled, and checked states.
 
-- [ ] **Step 6: Port the main-window code-behind**
+- [x] **Step 6: Port the main-window code-behind**
 
 Rename the class to `MainWindow : Window`, call `InitializeComponent()` first, and replace WinForms properties/events with WPF equivalents:
 
@@ -187,7 +187,7 @@ if (!Dispatcher.CheckAccess())
 
 Handle closing with `CancelEventArgs`, `Dispatcher.BeginInvoke`, and `Close()`. Remove WinForms disposal overrides because WPF controls/resources need no manual disposal.
 
-- [ ] **Step 7: Replace WinForms smoke-test support**
+- [x] **Step 7: Replace WinForms smoke-test support**
 
 Return a WPF window:
 
@@ -212,7 +212,7 @@ Dispatcher.CurrentDispatcher.Invoke(
     new Action(() => { }));
 ```
 
-- [ ] **Step 8: Rewrite UI self-checks for WPF**
+- [x] **Step 8: Rewrite UI self-checks for WPF**
 
 Use `FindName` and WPF types:
 
@@ -225,7 +225,7 @@ var statusIndicator = (TextBlock)window.FindName("statusIndicator");
 
 Retain every existing behavior assertion. Replace WinForms layout assertions with `Grid.GetRow(...)` / `Grid.GetColumn(...)`; replace `Text`, `Checked`, `Enabled`, and `ForeColor` assertions with `Content`, `IsChecked`, `IsEnabled`, and `Foreground`. Add checks that the window background is `WindowBackgroundBrush` and control backgrounds use dark resources.
 
-- [ ] **Step 9: Run GREEN verification and commit**
+- [x] **Step 9: Run GREEN verification and commit**
 
 Run:
 
@@ -255,7 +255,7 @@ git commit -m "feat: migrate main window to WPF"
 - Consumes: completed pure-WPF application and verification commands.
 - Produces: user-facing WPF and dark-theme documentation.
 
-- [ ] **Step 1: Update README**
+- [x] **Step 1: Update README**
 
 Change the introduction to identify the app as a WPF GUI. Add:
 
@@ -265,7 +265,7 @@ The interface uses one built-in dark theme.
 
 Keep all existing control and behavioral documentation unchanged.
 
-- [ ] **Step 2: Run complete non-display verification**
+- [x] **Step 2: Run complete non-display verification**
 
 Run:
 
@@ -279,14 +279,14 @@ git status --short
 
 Expected: self-test passes; build has zero warnings/errors; source scan has no matches; diff check is clean; only intended README change remains.
 
-- [ ] **Step 3: Commit documentation**
+- [x] **Step 3: Commit documentation**
 
 ```powershell
 git add -- README.md
 git commit -m "docs: document WPF dark interface"
 ```
 
-- [ ] **Step 4: Audit final branch**
+- [x] **Step 4: Audit final branch**
 
 Run:
 

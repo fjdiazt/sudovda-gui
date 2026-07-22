@@ -1,8 +1,10 @@
 # SudoVDA GUI
 
-Small Windows GUI for one temporary SudoVDA virtual monitor.
+Small Windows Presentation Foundation (WPF) GUI for one temporary SudoVDA virtual monitor.
 
 It reuses the SudoVDA driver installed by Apollo, creates an app-owned display, optionally makes it primary, routes newly opened top-level windows to it, and restores the original display layout when stopped.
+
+The interface uses one built-in dark theme.
 
 ## Requirements
 

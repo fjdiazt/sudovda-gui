@@ -1,92 +1,16 @@
-using System.Drawing;
+using System.ComponentModel;
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace SudoVDA.GUI;
 
-internal sealed class MainForm : Form
+public sealed partial class MainWindow : Window
 {
     private static readonly Guid MonitorGuid = new("8d6a8a70-67e9-4af0-9e57-0fcb401ca31b");
 
-    private readonly ComboBox _aspectCombo = new()
-    {
-        Name = "aspectCombo",
-        Dock = DockStyle.Fill,
-        DropDownStyle = ComboBoxStyle.DropDownList
-    };
-
-    private readonly ComboBox _presetCombo = new()
-    {
-        Name = "presetCombo",
-        Dock = DockStyle.Fill,
-        DropDownStyle = ComboBoxStyle.DropDownList
-    };
-    private readonly TextBox _widthText = new()
-    {
-        Name = "widthText",
-        Dock = DockStyle.Fill
-    };
-    private readonly TextBox _heightText = new()
-    {
-        Name = "heightText",
-        Dock = DockStyle.Fill
-    };
-    private readonly CheckBox _aspectLockButton = new()
-    {
-        Name = "aspectLockButton",
-        Appearance = Appearance.Button,
-        Text = "🔓",
-        AccessibleName = "Lock aspect ratio",
-        TextAlign = ContentAlignment.MiddleCenter,
-        Dock = DockStyle.Fill,
-        AutoSize = true
-    };
-    private readonly ToolTip _toolTip = new();
-    private readonly ComboBox _refreshCombo = new()
-    {
-        Name = "refreshCombo",
-        Dock = DockStyle.Fill,
-        DropDownStyle = ComboBoxStyle.DropDownList
-    };
-    private readonly ErrorProvider _resolutionErrors = new()
-    {
-        BlinkStyle = ErrorBlinkStyle.NeverBlink
-    };
-    private readonly CheckBox _primaryCheck = new()
-    {
-        Name = "primaryCheck",
-        Text = "Make primary",
-        Checked = true,
-        AutoSize = true
-    };
-    private readonly CheckBox _routingCheck = new()
-    {
-        Name = "routingCheck",
-        Text = "Route new windows",
-        Checked = true,
-        AutoSize = true
-    };
-    private readonly Button _startStopButton = new()
-    {
-        Name = "startStopButton",
-        Text = "Start",
-        AutoSize = true,
-        Anchor = AnchorStyles.Right
-    };
-    private readonly Label _statusLabel = new()
-    {
-        Name = "statusLabel",
-        Text = "Stopped",
-        AutoEllipsis = true,
-        Dock = DockStyle.Fill,
-        TextAlign = ContentAlignment.MiddleLeft
-    };
-    private readonly Label _statusIndicator = new()
-    {
-        Name = "statusIndicator",
-        Text = "●",
-        AutoSize = true,
-        ForeColor = Color.Firebrick,
-        Anchor = AnchorStyles.Left
-    };
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly DisplayMode _primaryMode;
     private readonly Action<UserSettings> _saveSettings;
@@ -103,137 +27,38 @@ internal sealed class MainForm : Form
     private bool _closing;
     private bool _allowClose;
 
-    internal MainForm() : this(null, null, null, null)
+    internal MainWindow() : this(null, null, null, null)
     {
     }
 
-    internal MainForm(
+    internal MainWindow(
         DisplayMode? primaryMode,
         UserSettings? settings,
         IReadOnlyList<DisplayMode>? availableModes,
         Action<UserSettings>? saveSettings)
     {
+        InitializeComponent();
         _primaryMode = primaryMode ?? DisplayController.GetPrimaryMode();
         _lastValidSettings = settings ?? UserSettingsStore.Load(_primaryMode);
         _saveSettings = saveSettings ?? (value => UserSettingsStore.Save(value));
 
-        Text = "SudoVDA";
-        ClientSize = new Size(500, 330);
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
-        StartPosition = FormStartPosition.CenterScreen;
-        _resolutionErrors.ContainerControl = this;
-
-        var resolutionLayout = new TableLayoutPanel
-        {
-            Name = "resolutionLayout",
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            ColumnCount = 4,
-            RowCount = 6,
-            Padding = new Padding(8)
-        };
-        resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
-        resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
-        resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        resolutionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
-        var aspectLabel = CreateFieldLabel("aspectLabel", "Aspect ratio");
-        resolutionLayout.Controls.Add(aspectLabel, 0, 0);
-        resolutionLayout.SetColumnSpan(aspectLabel, 4);
-        resolutionLayout.Controls.Add(_aspectCombo, 0, 1);
-        resolutionLayout.SetColumnSpan(_aspectCombo, 4);
-        var presetLabel = CreateFieldLabel("presetLabel", "Resolution preset");
-        resolutionLayout.Controls.Add(presetLabel, 0, 2);
-        resolutionLayout.SetColumnSpan(presetLabel, 4);
-        resolutionLayout.Controls.Add(_presetCombo, 0, 3);
-        resolutionLayout.SetColumnSpan(_presetCombo, 4);
-        resolutionLayout.Controls.Add(CreateFieldLabel("widthLabel", "Width"), 0, 4);
-        resolutionLayout.Controls.Add(CreateFieldLabel("heightLabel", "Height"), 1, 4);
-        resolutionLayout.Controls.Add(CreateFieldLabel("refreshLabel", "Refresh rate"), 3, 4);
-        resolutionLayout.Controls.Add(_widthText, 0, 5);
-        resolutionLayout.Controls.Add(_heightText, 1, 5);
-        resolutionLayout.Controls.Add(_aspectLockButton, 2, 5);
-        resolutionLayout.Controls.Add(_refreshCombo, 3, 5);
-
-        var displayGroup = new GroupBox
-        {
-            Name = "displayGroup",
-            Text = "Display",
-            Dock = DockStyle.Fill,
-            AutoSize = true
-        };
-        displayGroup.Controls.Add(resolutionLayout);
-
-        var behaviorFlow = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            FlowDirection = FlowDirection.LeftToRight,
-            Padding = new Padding(8, 4, 8, 4)
-        };
-        behaviorFlow.Controls.Add(_primaryCheck);
-        behaviorFlow.Controls.Add(_routingCheck);
-        var behaviorGroup = new GroupBox
-        {
-            Name = "behaviorGroup",
-            Text = "Behavior",
-            Dock = DockStyle.Fill,
-            AutoSize = true
-        };
-        behaviorGroup.Controls.Add(behaviorFlow);
-
-        var footer = new TableLayoutPanel
-        {
-            Name = "footerLayout",
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            ColumnCount = 3
-        };
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        footer.Controls.Add(_statusIndicator, 0, 0);
-        footer.Controls.Add(_statusLabel, 1, 0);
-        footer.Controls.Add(_startStopButton, 2, 0);
-
-        var layout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            Padding = new Padding(12),
-            ColumnCount = 1,
-            RowCount = 4
-        };
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.Controls.Add(displayGroup, 0, 0);
-        layout.Controls.Add(behaviorGroup, 0, 1);
-        layout.Controls.Add(footer, 0, 3);
-        Controls.Add(layout);
-
         LoadResolutionControls(availableModes ?? DisplayController.GetModeChoices(), _lastValidSettings);
-        _aspectCombo.SelectedIndexChanged += (_, _) => OnAspectChanged();
-        _presetCombo.SelectedIndexChanged += (_, _) => OnPresetChanged();
+        _aspectCombo.SelectionChanged += (_, _) => OnAspectChanged();
+        _presetCombo.SelectionChanged += (_, _) => OnPresetChanged();
         _widthText.TextChanged += (_, _) => OnDimensionChanged(true);
         _heightText.TextChanged += (_, _) => OnDimensionChanged(false);
-        _aspectLockButton.CheckedChanged += (_, _) => OnAspectLockChanged();
-        _refreshCombo.SelectedIndexChanged += (_, _) => ValidateResolution();
-        _primaryCheck.CheckedChanged += (_, _) => UpdatePersistedChecks();
-        _routingCheck.CheckedChanged += (_, _) => UpdatePersistedChecks();
+        _aspectLockButton.Checked += (_, _) => OnAspectLockChanged();
+        _aspectLockButton.Unchecked += (_, _) => OnAspectLockChanged();
+        _refreshCombo.SelectionChanged += (_, _) => ValidateResolution();
+        _primaryCheck.Checked += (_, _) => UpdatePersistedChecks();
+        _primaryCheck.Unchecked += (_, _) => UpdatePersistedChecks();
+        _routingCheck.Checked += (_, _) => UpdatePersistedChecks();
+        _routingCheck.Unchecked += (_, _) => UpdatePersistedChecks();
         _startStopButton.Click += async (_, _) => await ToggleAsync();
-        FormClosing += OnFormClosing;
+        Closing += OnWindowClosing;
         UpdateAspectLockButton();
         ValidateResolution();
     }
-
-    private static Label CreateFieldLabel(string name, string text) => new()
-    {
-        Name = name,
-        Text = text,
-        AutoSize = true,
-        Anchor = AnchorStyles.Left
-    };
 
     private void LoadResolutionControls(IReadOnlyList<DisplayMode> modes, UserSettings settings)
     {
@@ -257,8 +82,8 @@ internal sealed class MainForm : Form
             ? _primaryMode
             : new DisplayMode(settings.Width, settings.Height, settings.RefreshHz);
         SetModeText(initialMode, true);
-        _primaryCheck.Checked = settings.MakePrimary;
-        _routingCheck.Checked = settings.RouteNewWindows;
+        _primaryCheck.IsChecked = settings.MakePrimary;
+        _routingCheck.IsChecked = settings.RouteNewWindows;
         _suppressResolutionEvents = false;
     }
 
@@ -283,7 +108,6 @@ internal sealed class MainForm : Form
             ? _availableSizes
             : _availableSizes.Where(size => ResolutionOptions.AspectRatio(size) == ratio).ToArray();
 
-        _presetCombo.BeginUpdate();
         _presetCombo.Items.Clear();
         _presetCombo.Items.Add(new PresetChoice(
             "Match primary display", UserSettings.CopyPrimary, null));
@@ -306,7 +130,6 @@ internal sealed class MainForm : Form
         choice ??= _presetCombo.Items.Cast<PresetChoice>()
             .Single(item => item.Key == UserSettings.CopyPrimary);
         _presetCombo.SelectedItem = choice;
-        _presetCombo.EndUpdate();
         _suppressResolutionEvents = suppressed;
     }
 
@@ -327,7 +150,7 @@ internal sealed class MainForm : Form
         if (_suppressResolutionEvents)
             return;
 
-        if (_aspectLockButton.Checked &&
+        if (_aspectLockButton.IsChecked == true &&
             _lockedAspectRatio is { } ratio &&
             TryScaleLockedDimension(
                 widthChanged ? _widthText.Text : _heightText.Text,
@@ -353,17 +176,17 @@ internal sealed class MainForm : Form
         if (_suppressResolutionEvents)
             return;
 
-        if (_aspectLockButton.Checked && TryReadMode(out var mode))
+        if (_aspectLockButton.IsChecked == true && TryReadMode(out var mode))
         {
             _lockedAspectRatio = new ResolutionSize(mode.Width, mode.Height);
         }
         else
         {
             _lockedAspectRatio = null;
-            if (_aspectLockButton.Checked)
+            if (_aspectLockButton.IsChecked == true)
             {
                 _suppressResolutionEvents = true;
-                _aspectLockButton.Checked = false;
+                _aspectLockButton.IsChecked = false;
                 _suppressResolutionEvents = false;
             }
         }
@@ -393,12 +216,13 @@ internal sealed class MainForm : Form
 
     private void UpdateAspectLockButton()
     {
-        var locked = _aspectLockButton.Checked && _lockedAspectRatio is not null;
-        _aspectLockButton.Text = locked ? "🔒" : "🔓";
-        _aspectLockButton.AccessibleName = locked
+        var locked = _aspectLockButton.IsChecked == true && _lockedAspectRatio is not null;
+        var accessibleName = locked
             ? "Unlock aspect ratio"
             : "Lock aspect ratio";
-        _toolTip.SetToolTip(_aspectLockButton, _aspectLockButton.AccessibleName);
+        _aspectLockButton.Content = locked ? "🔒" : "🔓";
+        _aspectLockButton.ToolTip = accessibleName;
+        AutomationProperties.SetName(_aspectLockButton, accessibleName);
     }
 
     private void SetModeText(DisplayMode mode, bool copyRefresh)
@@ -409,7 +233,7 @@ internal sealed class MainForm : Form
         _heightText.Text = mode.Height.ToString();
         if (copyRefresh)
             _refreshCombo.SelectedItem = mode.RefreshHz;
-        if (_aspectLockButton.Checked)
+        if (_aspectLockButton.IsChecked == true)
             _lockedAspectRatio = new ResolutionSize(mode.Width, mode.Height);
         _suppressResolutionEvents = suppressed;
     }
@@ -435,9 +259,18 @@ internal sealed class MainForm : Form
             out mode,
             out var widthError,
             out var heightError);
-        _resolutionErrors.SetError(_widthText, widthError);
-        _resolutionErrors.SetError(_heightText, heightError);
+        SetValidation(_widthText, widthError);
+        SetValidation(_heightText, heightError);
         return valid;
+    }
+
+    private void SetValidation(TextBox textBox, string? message)
+    {
+        textBox.ToolTip = string.IsNullOrEmpty(message) ? null : message;
+        if (string.IsNullOrEmpty(message))
+            textBox.ClearValue(Control.BorderBrushProperty);
+        else
+            textBox.BorderBrush = (Brush)FindResource("ErrorBrush");
     }
 
     private void ValidateResolution()
@@ -450,8 +283,8 @@ internal sealed class MainForm : Form
                 mode.Width,
                 mode.Height,
                 mode.RefreshHz,
-                _primaryCheck.Checked,
-                _routingCheck.Checked);
+                _primaryCheck.IsChecked == true,
+                _routingCheck.IsChecked == true);
         }
         UpdateStartStopEnabled();
     }
@@ -460,8 +293,8 @@ internal sealed class MainForm : Form
     {
         _lastValidSettings = _lastValidSettings with
         {
-            MakePrimary = _primaryCheck.Checked,
-            RouteNewWindows = _routingCheck.Checked
+            MakePrimary = _primaryCheck.IsChecked == true,
+            RouteNewWindows = _routingCheck.IsChecked == true
         };
     }
 
@@ -471,8 +304,8 @@ internal sealed class MainForm : Form
         {
             _saveSettings(_lastValidSettings with
             {
-                MakePrimary = _primaryCheck.Checked,
-                RouteNewWindows = _routingCheck.Checked
+                MakePrimary = _primaryCheck.IsChecked == true,
+                RouteNewWindows = _routingCheck.IsChecked == true
             });
         }
         catch (Exception exception)
@@ -482,7 +315,7 @@ internal sealed class MainForm : Form
     }
 
     private void UpdateStartStopEnabled() =>
-        _startStopButton.Enabled = !_busy && (_session is not null || _modeValid);
+        _startStopButton.IsEnabled = !_busy && (_session is not null || _modeValid);
 
     private async Task ToggleAsync()
     {
@@ -534,9 +367,10 @@ internal sealed class MainForm : Form
                     addedDisplay,
                     TimeSpan.FromSeconds(5),
                     CancellationToken.None);
-                var bounds = DisplayController.PlaceAndSetPrimary(deviceName, mode, _primaryCheck.Checked);
+                var bounds = DisplayController.PlaceAndSetPrimary(
+                    deviceName, mode, _primaryCheck.IsChecked == true);
 
-                if (_routingCheck.Checked)
+                if (_routingCheck.IsChecked == true)
                     router = WindowRouter.Start(bounds, ReportBackgroundError);
 
                 _session = new MonitorSession(
@@ -722,12 +556,12 @@ internal sealed class MainForm : Form
 
     private void ReportBackgroundError(string message)
     {
-        if (IsDisposed)
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
             return;
 
-        if (InvokeRequired)
+        if (!Dispatcher.CheckAccess())
         {
-            BeginInvoke(() => ReportBackgroundError(message));
+            Dispatcher.BeginInvoke(() => ReportBackgroundError(message));
             return;
         }
 
@@ -737,34 +571,35 @@ internal sealed class MainForm : Form
     internal void SetUiState(string status, bool busy, bool active, bool error = false)
     {
         _statusLabel.Text = status;
-        _statusIndicator.ForeColor = error
-            ? Color.Firebrick
+        var brushKey = error
+            ? "ErrorBrush"
             : busy
-                ? Color.DarkOrange
+                ? "BusyBrush"
                 : active
-                    ? Color.ForestGreen
-                    : Color.Firebrick;
+                    ? "ActiveBrush"
+                    : "ErrorBrush";
+        _statusIndicator.Foreground = (Brush)FindResource(brushKey);
         _busy = busy;
         var resolutionEnabled = !busy && !active;
-        _aspectCombo.Enabled = resolutionEnabled;
-        _aspectLockButton.Enabled = resolutionEnabled;
-        _presetCombo.Enabled = resolutionEnabled;
-        _widthText.Enabled = resolutionEnabled;
-        _heightText.Enabled = resolutionEnabled;
-        _refreshCombo.Enabled = resolutionEnabled;
-        _primaryCheck.Enabled = resolutionEnabled;
-        _routingCheck.Enabled = resolutionEnabled;
-        _startStopButton.Text = active ? "Stop" : "Start";
+        _aspectCombo.IsEnabled = resolutionEnabled;
+        _aspectLockButton.IsEnabled = resolutionEnabled;
+        _presetCombo.IsEnabled = resolutionEnabled;
+        _widthText.IsEnabled = resolutionEnabled;
+        _heightText.IsEnabled = resolutionEnabled;
+        _refreshCombo.IsEnabled = resolutionEnabled;
+        _primaryCheck.IsEnabled = resolutionEnabled;
+        _routingCheck.IsEnabled = resolutionEnabled;
+        _startStopButton.Content = active ? "Stop" : "Start";
         UpdateStartStopEnabled();
     }
 
     private void SetStatusError(string status)
     {
         _statusLabel.Text = status;
-        _statusIndicator.ForeColor = Color.Firebrick;
+        _statusIndicator.Foreground = (Brush)FindResource("ErrorBrush");
     }
 
-    private void OnFormClosing(object? sender, FormClosingEventArgs eventArgs)
+    private void OnWindowClosing(object? sender, CancelEventArgs eventArgs)
     {
         PersistSettings();
         if (_allowClose || (_session is null && !_transitioning))
@@ -775,7 +610,7 @@ internal sealed class MainForm : Form
             return;
 
         _closing = true;
-        BeginInvoke(async () =>
+        Dispatcher.BeginInvoke(new Action(async () =>
         {
             await StopAsync();
             if (_session is null)
@@ -787,17 +622,7 @@ internal sealed class MainForm : Form
             {
                 _closing = false;
             }
-        });
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            _toolTip.Dispose();
-            _resolutionErrors.Dispose();
-        }
-        base.Dispose(disposing);
+        }));
     }
 
     private sealed record AspectFilterChoice(string Label, ResolutionAspectRatio? Ratio)

@@ -1,5 +1,7 @@
 using System.Diagnostics;
-using System.Drawing;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Media;
 
 namespace SudoVDA.GUI;
 
@@ -9,7 +11,6 @@ internal static class SmokeTest
 
     internal static int Run()
     {
-        ApplicationConfiguration.Initialize();
         var original = DisplayController.Capture();
         var mode = original.Displays.Single(display => display.Primary).Mode;
         var errors = new List<string>();
@@ -93,12 +94,15 @@ internal static class SmokeTest
         return 1;
     }
 
-    internal static Form CreateTestWindow() => new()
+    internal static Window CreateTestWindow() => new()
     {
-        Text = "SudoVDA Smoke Window",
-        ClientSize = new Size(640, 480),
-        StartPosition = FormStartPosition.Manual,
-        Location = new Point(40, 40)
+        Title = "SudoVDA Smoke Window",
+        Width = 640,
+        Height = 480,
+        WindowStartupLocation = WindowStartupLocation.Manual,
+        Left = 40,
+        Top = 40,
+        Background = Brushes.Black
     };
 
     private static Process StartTestWindow()
@@ -115,7 +119,6 @@ internal static class SmokeTest
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
-            Application.DoEvents();
             process.Refresh();
             if (process.HasExited)
                 throw new InvalidOperationException($"Smoke window exited with code {process.ExitCode}.");
@@ -133,14 +136,27 @@ internal static class SmokeTest
         var actual = string.Empty;
         while (DateTime.UtcNow < deadline)
         {
-            Application.DoEvents();
-            actual = Screen.FromHandle(window).DeviceName;
+            actual = MonitorDeviceName(window);
             if (string.Equals(actual, expectedDevice, StringComparison.OrdinalIgnoreCase))
                 return actual;
             Thread.Sleep(50);
         }
 
         return actual;
+    }
+
+    private static string MonitorDeviceName(IntPtr window)
+    {
+        var monitor = MonitorFromWindow(window, 0);
+        if (monitor == IntPtr.Zero)
+            return string.Empty;
+
+        var info = new MonitorInfoEx
+        {
+            Size = (uint)Marshal.SizeOf<MonitorInfoEx>(),
+            DeviceName = string.Empty
+        };
+        return GetMonitorInfo(monitor, ref info) ? info.DeviceName : string.Empty;
     }
 
     private static async Task RunWatchdogAsync(
@@ -227,4 +243,35 @@ internal static class SmokeTest
             errors.Add($"{operation}: {exception.Message}");
         }
     }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    internal struct MonitorInfoEx
+    {
+        internal uint Size;
+        internal NativeRect Monitor;
+        internal NativeRect Work;
+        internal uint Flags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        internal string DeviceName;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NativeRect
+    {
+        internal int Left;
+        internal int Top;
+        internal int Right;
+        internal int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr window, uint flags);
+
+    [DllImport(
+        "user32.dll",
+        EntryPoint = "GetMonitorInfoW",
+        CharSet = CharSet.Unicode,
+        SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfoEx info);
 }

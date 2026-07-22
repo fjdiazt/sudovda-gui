@@ -44,11 +44,12 @@ internal static class ResolutionOptions
     private static readonly ResolutionAspectRatio[] KnownAspectRatios =
     [
         new(1, 1, "Square"),
-        new(5, 4, "Standard"),
-        new(4, 3, "Standard"),
         new(3, 2, "Classic"),
-        new(16, 10, "Wide"),
+        new(4, 3, "Standard"),
+        new(5, 3, "Wide"),
+        new(5, 4, "Standard"),
         new(16, 9, "Wide"),
+        new(16, 10, "Wide"),
         new(21, 9, "Ultrawide"),
         new(32, 9, "Super ultrawide")
     ];
@@ -62,7 +63,8 @@ internal static class ResolutionOptions
         modes
             .Select(mode => new ResolutionSize(mode.Width, mode.Height))
             .Distinct()
-            .OrderBy(size => AspectRatio(size).Value)
+            .OrderBy(size => SortOrder(AspectRatio(size)))
+            .ThenBy(size => AspectRatio(size).Value)
             .ThenBy(size => size.Width)
             .ThenBy(size => size.Height)
             .ToArray();
@@ -83,10 +85,17 @@ internal static class ResolutionOptions
         sizes
             .Select(AspectRatio)
             .Distinct()
-            .OrderBy(value => value.Value)
+            .OrderBy(SortOrder)
+            .ThenBy(value => value.Value)
             .ThenBy(value => value.Numerator)
             .ThenBy(value => value.Denominator)
             .ToArray();
+
+    private static int SortOrder(ResolutionAspectRatio ratio)
+    {
+        var index = Array.IndexOf(KnownAspectRatios, ratio);
+        return index < 0 ? int.MaxValue : index;
+    }
 
     private static uint GreatestCommonDivisor(uint left, uint right)
     {

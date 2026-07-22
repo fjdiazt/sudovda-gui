@@ -69,6 +69,9 @@ internal static class DisplayController
 
         modes.AddRange(
         [
+            new DisplayMode(1080, 1080, 60),
+            new DisplayMode(1440, 1440, 60),
+            new DisplayMode(2160, 2160, 60),
             new DisplayMode(1280, 720, 60),
             new DisplayMode(1920, 1080, 60),
             new DisplayMode(1920, 1080, 120),

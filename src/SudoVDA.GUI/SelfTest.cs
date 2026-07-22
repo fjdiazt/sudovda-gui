@@ -54,7 +54,10 @@ internal static class SelfTest
         Check(DisplayController.ChoosePosition(overlappingDisplays, "virtual") == new Point(1920, 0),
             "move overlapping virtual display right");
         Check(snapshot.Displays.Count(display => display.Primary) == 1, "single primary discovery");
-        Check(DisplayController.GetModeChoices().Count > 0, "display mode discovery");
+        var modeChoices = DisplayController.GetModeChoices();
+        Check(modeChoices.Count > 0, "display mode discovery");
+        Check(new[] { 1080u, 1440u, 2160u }.All(width =>
+            modeChoices.Any(mode => mode.Width == width && mode.Height == width)), "square fallback modes");
 
         Check(WindowRouter.IsEligible(new(true, false, false, false, 42), 7, 99), "normal window");
         Check(!WindowRouter.IsEligible(new(true, false, false, false, 7), 7, 99), "own process");
@@ -123,10 +126,10 @@ internal static class SelfTest
         [
             "All aspect ratios",
             "1:1 (Square)",
-            "5:4 (Standard)",
             "4:3 (Standard)",
-            "16:10 (Wide)",
+            "5:4 (Standard)",
             "16:9 (Wide)",
+            "16:10 (Wide)",
             "21:9 (Ultrawide)"
         ]), "aspect dropdown contents");
         Check(preset.Items.Cast<object>().Any(item => item.ToString() ==
@@ -221,6 +224,8 @@ internal static class SelfTest
         [
             new DisplayMode(1920, 1080, 60),
             new DisplayMode(1920, 1200, 60),
+            new DisplayMode(1280, 768, 60),
+            new DisplayMode(1440, 960, 60),
             new DisplayMode(1024, 768, 60),
             new DisplayMode(1280, 1024, 60),
             new DisplayMode(1000, 1000, 60)
@@ -228,19 +233,23 @@ internal static class SelfTest
         Check(aspectSortedSizes.SequenceEqual(
         [
             new ResolutionSize(1000, 1000),
-            new ResolutionSize(1280, 1024),
+            new ResolutionSize(1440, 960),
             new ResolutionSize(1024, 768),
-            new ResolutionSize(1920, 1200),
-            new ResolutionSize(1920, 1080)
+            new ResolutionSize(1280, 768),
+            new ResolutionSize(1280, 1024),
+            new ResolutionSize(1920, 1080),
+            new ResolutionSize(1920, 1200)
         ]), "resolution aspect-first ordering");
         var aspects = ResolutionOptions.AspectRatios(aspectSortedSizes);
         Check(aspects.Select(value => value.FilterLabel).SequenceEqual(
         [
             "1:1 (Square)",
-            "5:4 (Standard)",
+            "3:2 (Classic)",
             "4:3 (Standard)",
-            "16:10 (Wide)",
-            "16:9 (Wide)"
+            "5:3 (Wide)",
+            "5:4 (Standard)",
+            "16:9 (Wide)",
+            "16:10 (Wide)"
         ]), "aspect filter ordering and labels");
 
         var sizes = ResolutionOptions.DistinctSizes(

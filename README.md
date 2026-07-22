@@ -5,6 +5,8 @@ A small Windows GUI for creating and managing a temporary virtual display with S
 > [!IMPORTANT]
 > This project is a proof of concept. It currently requires Apollo to be installed because Apollo provides the SudoVDA driver. A future version should remove this dependency.
 
+![SudoVDA GUI](docs/images/sudovda-gui.png)
+
 ## Features
 
 - Create one temporary virtual display.

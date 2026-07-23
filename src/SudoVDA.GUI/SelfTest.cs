@@ -19,6 +19,7 @@ internal static class SelfTest
             .Any(reference => reference.Name == "System.Windows.Forms"),
             "no Windows Forms assembly reference");
         Check(Assembly.GetExecutingAssembly().GetName().Name == "SudoVDA-GUI", "assembly name");
+        CheckSingleInstance();
         Check(StartupRegistration.BuildCommand(@"C:\Apps\SudoVDA-GUI.exe") ==
               "\"C:\\Apps\\SudoVDA-GUI.exe\" --startup",
             "startup command");
@@ -101,6 +102,28 @@ internal static class SelfTest
 
         Console.Error.WriteLine($"Self-test failed: {_failures} check(s).");
         return 1;
+    }
+
+    private static void CheckSingleInstance()
+    {
+        var name = $@"Local\SudoVDA.GUI.Tests.{Guid.NewGuid():N}";
+        var first = App.TryAcquireSingleInstance(name);
+        var second = App.TryAcquireSingleInstance(name);
+
+        Check(first is not null, "first application instance owns mutex");
+        Check(second is null, "second application instance is rejected");
+
+        if (second is not null)
+        {
+            second.ReleaseMutex();
+            second.Dispose();
+        }
+
+        if (first is not null)
+        {
+            first.ReleaseMutex();
+            first.Dispose();
+        }
     }
 
     private static void CheckResolutionWindow()

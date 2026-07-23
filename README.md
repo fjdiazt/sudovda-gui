@@ -16,6 +16,8 @@ A small Windows GUI for creating and managing a temporary virtual display with S
 - Optionally make the virtual display primary.
 - Optionally move newly opened windows onto it.
 - Remove the display and restore the previous layout when stopped.
+- Start the app when signing in to Windows.
+- Minimize the app to the Windows notification area.
 
 ## Requirements
 
@@ -33,6 +35,10 @@ A small Windows GUI for creating and managing a temporary virtual display with S
 6. Select **Stop** when finished.
 
 Closing the app also removes its virtual display and restores the previous display layout.
+
+**Start with Windows** launches the app, not the virtual display. When both startup and notification-area options are enabled, the app starts hidden. Select the notification icon to reopen it, or right-click the icon to exit.
+
+The Minimize button hides the app when **Minimize to notification area** is enabled. The Close button always exits.
 
 ## Limitations
 

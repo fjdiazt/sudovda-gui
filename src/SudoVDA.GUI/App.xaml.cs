@@ -26,13 +26,20 @@ public partial class App : Application
             return;
         }
 
-        ShowWindow(new MainWindow());
+        var window = new MainWindow();
+        ShowWindow(
+            window,
+            eventArgs.Args.Contains("--startup", StringComparer.OrdinalIgnoreCase) &&
+            window.MinimizeToNotificationAreaEnabled);
     }
 
-    private void ShowWindow(Window window)
+    private void ShowWindow(Window window, bool hidden = false)
     {
         MainWindow = window;
         window.Closed += (_, _) => Shutdown();
-        window.Show();
+        if (hidden && window is MainWindow mainWindow)
+            mainWindow.HideToNotificationArea();
+        else
+            window.Show();
     }
 }

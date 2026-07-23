@@ -113,19 +113,46 @@
         <GroupBox x:Name="behaviorGroup"
                   Grid.Row="1"
                   Header="Behavior">
-            <StackPanel Orientation="Horizontal">
+            <Grid x:Name="behaviorLayout">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <CheckBox x:Name="_primaryCheck"
+                          Grid.Row="0"
+                          Grid.Column="0"
                           Content="Make primary"
                           IsChecked="True"
-                          Margin="0,0,24,0"
+                          Margin="0,0,12,8"
                           automation:AutomationProperties.AutomationId="primaryCheck"
                           TabIndex="6" />
                 <CheckBox x:Name="_routingCheck"
+                          Grid.Row="0"
+                          Grid.Column="1"
                           Content="Route new windows"
                           IsChecked="True"
+                          Margin="12,0,0,8"
                           automation:AutomationProperties.AutomationId="routingCheck"
                           TabIndex="7" />
-            </StackPanel>
+                <CheckBox x:Name="_startWithWindowsCheck"
+                          Grid.Row="1"
+                          Grid.Column="0"
+                          Content="Start with Windows"
+                          Margin="0,0,12,0"
+                          automation:AutomationProperties.AutomationId="startWithWindowsCheck"
+                          TabIndex="8" />
+                <CheckBox x:Name="_minimizeToNotificationAreaCheck"
+                          Grid.Row="1"
+                          Grid.Column="1"
+                          Content="Minimize to notification area"
+                          Margin="12,0,0,0"
+                          automation:AutomationProperties.AutomationId="minimizeToNotificationAreaCheck"
+                          TabIndex="9" />
+            </Grid>
         </GroupBox>
 
         <Grid x:Name="footerLayout"
@@ -156,7 +183,7 @@
                     Content="Start"
                     IsDefault="True"
                     automation:AutomationProperties.AutomationId="startStopButton"
-                    TabIndex="8" />
+                    TabIndex="10" />
         </Grid>
     </Grid>
 </Window>

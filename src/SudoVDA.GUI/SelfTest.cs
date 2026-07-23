@@ -19,6 +19,9 @@ internal static class SelfTest
             .Any(reference => reference.Name == "System.Windows.Forms"),
             "no Windows Forms assembly reference");
         Check(Assembly.GetExecutingAssembly().GetName().Name == "SudoVDA-GUI", "assembly name");
+        Check(StartupRegistration.BuildCommand(@"C:\Apps\SudoVDA-GUI.exe") ==
+              "\"C:\\Apps\\SudoVDA-GUI.exe\" --startup",
+            "startup command");
         Check(new DisplayMode(1920, 1080, 60).ToString() == "1920 x 1080 @ 60 Hz", "display mode formatting");
         CheckResolutionSettings();
         CheckResolutionWindow();
@@ -98,6 +101,7 @@ internal static class SelfTest
     {
         var primary = new DisplayMode(3440, 1440, 119);
         UserSettings? saved = null;
+        bool? startWithWindowsSaved = null;
         var window = new MainWindow(
             primary,
             UserSettings.Defaults(primary),
@@ -109,7 +113,9 @@ internal static class SelfTest
                 new DisplayMode(1280, 1024, 60),
                 new DisplayMode(1000, 1000, 60)
             ],
-            value => saved = value);
+            value => saved = value,
+            false,
+            value => startWithWindowsSaved = value);
 
         var preset = Find<ComboBox>(window, "_presetCombo");
         var aspect = Find<ComboBox>(window, "_aspectCombo");
@@ -118,6 +124,8 @@ internal static class SelfTest
         var refresh = Find<ComboBox>(window, "_refreshCombo");
         var primaryCheck = Find<CheckBox>(window, "_primaryCheck");
         var routingCheck = Find<CheckBox>(window, "_routingCheck");
+        var startWithWindowsCheck = window.FindName("_startWithWindowsCheck") as CheckBox;
+        var minimizeCheck = window.FindName("_minimizeToNotificationAreaCheck") as CheckBox;
         var start = Find<Button>(window, "_startStopButton");
         var displayGroup = Find<GroupBox>(window, "displayGroup");
         var behaviorGroup = Find<GroupBox>(window, "behaviorGroup");
@@ -166,6 +174,11 @@ internal static class SelfTest
             "all-aspects preserves selected preset");
         Check(primaryCheck.IsChecked == true, "make-primary default");
         Check(routingCheck.IsChecked == true, "routing default");
+        Check(startWithWindowsCheck?.Content?.ToString() == "Start with Windows",
+            "start-with-Windows option");
+        Check(startWithWindowsCheck?.IsChecked == false, "start-with-Windows default");
+        Check(minimizeCheck?.Content?.ToString() == "Minimize to notification area",
+            "notification-area option");
         Check(start.Content?.ToString() == "Start", "start button default");
         Check(displayGroup.Header?.ToString() == "Display", "display group");
         Check(behaviorGroup.Header?.ToString() == "Behavior", "behavior group");
@@ -212,9 +225,15 @@ internal static class SelfTest
 
         primaryCheck.IsChecked = false;
         routingCheck.IsChecked = false;
+        startWithWindowsCheck!.IsChecked = true;
+        if (minimizeCheck is not null)
+            minimizeCheck.IsChecked = true;
         window.PersistSettings();
-        Check(saved == new UserSettings("Custom", 2000, 1080, 119, false, false),
+        Check(startWithWindowsSaved == true, "start-with-Windows registration");
+        Check(saved == new UserSettings("Custom", 2000, 1080, 119, false, false, true),
             "window settings persistence");
+        Check(saved?.GetType().GetProperty("MinimizeToNotificationArea")?.GetValue(saved) is true,
+            "notification-area preference persistence");
         width.Text = "2100";
         window.PersistSettings();
         Check(saved?.Width == 2100, "settings resave after later edit");
@@ -352,9 +371,20 @@ internal static class SelfTest
         var path = $@"Software\VRPrivacy\Tests\{Guid.NewGuid():N}";
         try
         {
-            var expected = new UserSettings("Custom", 2000, 1000, 144, false, true);
+            var expected = new UserSettings("Custom", 2000, 1000, 144, false, true, true);
             UserSettingsStore.Save(expected, path);
             Check(UserSettingsStore.Load(primary, path) == expected, "settings registry round-trip");
+
+            const string fakeExecutable = @"C:\Apps\SudoVDA-GUI.exe";
+            const string startupValue = "SudoVDA GUI Test";
+            Check(!StartupRegistration.IsEnabled(fakeExecutable, path, startupValue),
+                "startup registration default");
+            StartupRegistration.SetEnabled(true, fakeExecutable, path, startupValue);
+            Check(StartupRegistration.IsEnabled(fakeExecutable, path, startupValue),
+                "startup registration enabled");
+            StartupRegistration.SetEnabled(false, fakeExecutable, path, startupValue);
+            Check(!StartupRegistration.IsEnabled(fakeExecutable, path, startupValue),
+                "startup registration disabled");
             UserSettingsStore.Save(expected with { Preset = "1920x1080" }, path);
             var mismatchedPreset = UserSettingsStore.Load(primary, path);
             Check(mismatchedPreset.Preset == UserSettings.CopyPrimary,

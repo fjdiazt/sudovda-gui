@@ -27,7 +27,8 @@ internal sealed record UserSettings(
     uint Height,
     uint RefreshHz,
     bool MakePrimary,
-    bool RouteNewWindows)
+    bool RouteNewWindows,
+    bool MinimizeToNotificationArea)
 {
     internal const string CopyPrimary = "CopyPrimary";
     internal const string Custom = "Custom";
@@ -35,7 +36,7 @@ internal sealed record UserSettings(
     internal static UserSettings Defaults(DisplayMode primary)
     {
         var refresh = primary.RefreshHz is >= 1 and <= 500 ? primary.RefreshHz : 60;
-        return new(CopyPrimary, primary.Width, primary.Height, refresh, true, true);
+        return new(CopyPrimary, primary.Width, primary.Height, refresh, true, true, false);
     }
 }
 
@@ -178,6 +179,7 @@ internal static class UserSettingsStore
 
             var makePrimary = ReadBoolean(key, "MakePrimary", true);
             var routeNewWindows = ReadBoolean(key, "RouteNewWindows", true);
+            var minimizeToNotificationArea = ReadBoolean(key, "MinimizeToNotificationArea", false);
             var preset = key.GetValue("Preset") as string ?? UserSettings.CopyPrimary;
             var width = ReadUInt(key, "Width", defaults.Width);
             var height = ReadUInt(key, "Height", defaults.Height);
@@ -201,11 +203,14 @@ internal static class UserSettingsStore
                 return defaults with
                 {
                     MakePrimary = makePrimary,
-                    RouteNewWindows = routeNewWindows
+                    RouteNewWindows = routeNewWindows,
+                    MinimizeToNotificationArea = minimizeToNotificationArea
                 };
             }
 
-            return new(preset, width, height, refresh, makePrimary, routeNewWindows);
+            return new(
+                preset, width, height, refresh,
+                makePrimary, routeNewWindows, minimizeToNotificationArea);
         }
         catch
         {
@@ -222,6 +227,8 @@ internal static class UserSettingsStore
         key.SetValue("RefreshHz", checked((int)settings.RefreshHz), RegistryValueKind.DWord);
         key.SetValue("MakePrimary", settings.MakePrimary ? 1 : 0, RegistryValueKind.DWord);
         key.SetValue("RouteNewWindows", settings.RouteNewWindows ? 1 : 0, RegistryValueKind.DWord);
+        key.SetValue(
+            "MinimizeToNotificationArea", settings.MinimizeToNotificationArea ? 1 : 0, RegistryValueKind.DWord);
     }
 
     private static uint ReadUInt(RegistryKey key, string name, uint fallback) =>

@@ -22,6 +22,12 @@ internal static class SelfTest
         Check(StartupRegistration.BuildCommand(@"C:\Apps\SudoVDA-GUI.exe") ==
               "\"C:\\Apps\\SudoVDA-GUI.exe\" --startup",
             "startup command");
+        Check(MainWindow.NotificationAreaAction(false, false, true) ==
+              ("Start virtual display", true), "tray start command");
+        Check(MainWindow.NotificationAreaAction(true, false, true) ==
+              ("Stop virtual display", true), "tray stop command");
+        Check(MainWindow.NotificationAreaAction(false, true, true) ==
+              ("Start virtual display", false), "tray command disabled while transitioning");
         Check(new DisplayMode(1920, 1080, 60).ToString() == "1920 x 1080 @ 60 Hz", "display mode formatting");
         CheckResolutionSettings();
         CheckResolutionWindow();

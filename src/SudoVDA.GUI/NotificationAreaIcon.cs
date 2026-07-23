@@ -23,29 +23,40 @@ internal sealed class NotificationAreaIcon : IDisposable
     private const int NinSelect = 0x0400;
     private const int NinKeySelect = 0x0401;
     private const uint MfString = 0;
+    private const uint MfGrayed = 1;
     private const uint MfSeparator = 0x0800;
     private const uint TpmRightButton = 0x0002;
     private const uint TpmReturnCommand = 0x0100;
     private const uint OpenCommand = 1;
-    private const uint ExitCommand = 2;
+    private const uint StartStopCommand = 2;
+    private const uint ExitCommand = 3;
 
     private readonly IntPtr _windowHandle;
     private readonly HwndSource _source;
     private readonly Icon _icon;
     private readonly Action _open;
+    private readonly Func<(string Label, bool Enabled)> _getStartStopAction;
+    private readonly Action _startStop;
     private readonly Action _exit;
     private readonly uint _taskbarCreatedMessage;
     private NotifyIconData _data;
     private bool _visible;
     private bool _disposed;
 
-    internal NotificationAreaIcon(Window window, Action open, Action exit)
+    internal NotificationAreaIcon(
+        Window window,
+        Action open,
+        Func<(string Label, bool Enabled)> getStartStopAction,
+        Action startStop,
+        Action exit)
     {
         _windowHandle = new WindowInteropHelper(window).EnsureHandle();
         _source = HwndSource.FromHwnd(_windowHandle) ??
             throw new InvalidOperationException("Could not access the WPF window handle.");
         _icon = LoadApplicationIcon();
         _open = open;
+        _getStartStopAction = getStartStopAction;
+        _startStop = startStop;
         _exit = exit;
         _taskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
         _data = new NotifyIconData
@@ -159,8 +170,14 @@ internal sealed class NotificationAreaIcon : IDisposable
 
         try
         {
+            var startStop = _getStartStopAction();
             AppendMenu(menu, MfString, OpenCommand, "Open SudoVDA");
             SetMenuDefaultItem(menu, OpenCommand, false);
+            AppendMenu(
+                menu,
+                MfString | (startStop.Enabled ? 0 : MfGrayed),
+                StartStopCommand,
+                startStop.Label);
             AppendMenu(menu, MfSeparator, 0, null);
             AppendMenu(menu, MfString, ExitCommand, "Exit");
             GetCursorPos(out var position);
@@ -176,6 +193,8 @@ internal sealed class NotificationAreaIcon : IDisposable
 
             if (command == OpenCommand)
                 _open();
+            else if (command == StartStopCommand)
+                _startStop();
             else if (command == ExitCommand)
                 _exit();
         }

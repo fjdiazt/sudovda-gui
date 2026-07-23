@@ -348,6 +348,8 @@ public sealed partial class MainWindow : Window
             _notificationAreaIcon ??= new NotificationAreaIcon(
                 this,
                 RestoreFromNotificationArea,
+                GetNotificationAreaAction,
+                ToggleFromNotificationArea,
                 Close);
             _notificationAreaIcon.Show();
             ShowInTaskbar = false;
@@ -376,6 +378,24 @@ public sealed partial class MainWindow : Window
     {
         if (WindowState == WindowState.Minimized && MinimizeToNotificationAreaEnabled)
             Dispatcher.BeginInvoke(HideToNotificationArea);
+    }
+
+    internal static (string Label, bool Enabled) NotificationAreaAction(
+        bool active,
+        bool transitioning,
+        bool modeValid) =>
+        (
+            active ? "Stop virtual display" : "Start virtual display",
+            !transitioning && (active || modeValid)
+        );
+
+    private (string Label, bool Enabled) GetNotificationAreaAction() =>
+        NotificationAreaAction(_session is not null, _transitioning, _modeValid);
+
+    private async void ToggleFromNotificationArea()
+    {
+        if (GetNotificationAreaAction().Enabled)
+            await ToggleAsync();
     }
 
     private void OnStartWithWindowsChanged()

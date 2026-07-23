@@ -36,7 +36,7 @@ A small Windows GUI for creating and managing a temporary virtual display with S
 
 Closing the app also removes its virtual display and restores the previous display layout.
 
-**Start with Windows** launches the app, not the virtual display. When both startup and notification-area options are enabled, the app starts hidden. Select the notification icon to reopen it, or right-click the icon to exit.
+**Start with Windows** launches the app, not the virtual display. When both startup and notification-area options are enabled, the app starts hidden. Select the notification icon to reopen it, or right-click the icon to start or stop the virtual display or exit.
 
 The Minimize button hides the app when **Minimize to notification area** is enabled. The Close button always exits.
 

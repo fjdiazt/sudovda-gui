@@ -1,6 +1,8 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
 
 namespace SudoVDA.GUI;
@@ -9,7 +11,6 @@ internal sealed class NotificationAreaIcon : IDisposable
 {
     private const uint NimAdd = 0;
     private const uint NimDelete = 2;
-    private const uint NimSetFocus = 3;
     private const uint NimSetVersion = 4;
     private const uint NifMessage = 1;
     private const uint NifIcon = 2;
@@ -22,22 +23,12 @@ internal sealed class NotificationAreaIcon : IDisposable
     private const int WmRButtonUp = 0x0205;
     private const int NinSelect = 0x0400;
     private const int NinKeySelect = 0x0401;
-    private const uint MfString = 0;
-    private const uint MfGrayed = 1;
-    private const uint MfSeparator = 0x0800;
-    private const uint TpmRightButton = 0x0002;
-    private const uint TpmReturnCommand = 0x0100;
-    private const uint OpenCommand = 1;
-    private const uint StartStopCommand = 2;
-    private const uint ExitCommand = 3;
 
     private readonly IntPtr _windowHandle;
     private readonly HwndSource _source;
     private readonly Icon _icon;
     private readonly Action _open;
-    private readonly Func<(string Label, bool Enabled)> _getStartStopAction;
-    private readonly Action _startStop;
-    private readonly Action _exit;
+    private readonly ContextMenu _menu;
     private readonly uint _taskbarCreatedMessage;
     private NotifyIconData _data;
     private bool _visible;
@@ -55,9 +46,7 @@ internal sealed class NotificationAreaIcon : IDisposable
             throw new InvalidOperationException("Could not access the WPF window handle.");
         _icon = LoadApplicationIcon();
         _open = open;
-        _getStartStopAction = getStartStopAction;
-        _startStop = startStop;
-        _exit = exit;
+        _menu = CreateMenu(open, getStartStopAction, startStop, exit);
         _taskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
         _data = new NotifyIconData
         {
@@ -164,44 +153,46 @@ internal sealed class NotificationAreaIcon : IDisposable
 
     private void ShowMenu()
     {
-        var menu = CreatePopupMenu();
-        if (menu == IntPtr.Zero)
+        if (_menu.IsOpen)
             return;
 
-        try
-        {
-            var startStop = _getStartStopAction();
-            AppendMenu(menu, MfString, OpenCommand, "Open SudoVDA");
-            SetMenuDefaultItem(menu, OpenCommand, false);
-            AppendMenu(
-                menu,
-                MfString | (startStop.Enabled ? 0 : MfGrayed),
-                StartStopCommand,
-                startStop.Label);
-            AppendMenu(menu, MfSeparator, 0, null);
-            AppendMenu(menu, MfString, ExitCommand, "Exit");
-            GetCursorPos(out var position);
-            SetForegroundWindow(_windowHandle);
-            var command = TrackPopupMenuEx(
-                menu,
-                TpmRightButton | TpmReturnCommand,
-                position.X,
-                position.Y,
-                _windowHandle,
-                IntPtr.Zero);
-            ShellNotifyIcon(NimSetFocus, ref _data);
+        _menu.IsOpen = true;
+    }
 
-            if (command == OpenCommand)
-                _open();
-            else if (command == StartStopCommand)
-                _startStop();
-            else if (command == ExitCommand)
-                _exit();
-        }
-        finally
+    internal static ContextMenu CreateMenu(
+        Action open,
+        Func<(string Label, bool Enabled)> getStartStopAction,
+        Action startStop,
+        Action exit)
+    {
+        var state = getStartStopAction();
+        var openItem = new MenuItem
         {
-            DestroyMenu(menu);
-        }
+            Header = "Open SudoVDA",
+            FontWeight = FontWeights.SemiBold
+        };
+        var startStopItem = new MenuItem
+        {
+            Header = state.Label,
+            IsEnabled = state.Enabled
+        };
+        var exitItem = new MenuItem { Header = "Exit" };
+        openItem.Click += (_, _) => open();
+        startStopItem.Click += (_, _) => startStop();
+        exitItem.Click += (_, _) => exit();
+
+        var menu = new ContextMenu { Placement = PlacementMode.MousePoint };
+        menu.Items.Add(openItem);
+        menu.Items.Add(startStopItem);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(exitItem);
+        menu.Opened += (_, _) =>
+        {
+            var current = getStartStopAction();
+            startStopItem.Header = current.Label;
+            startStopItem.IsEnabled = current.Enabled;
+        };
+        return menu;
     }
 
     private static Icon LoadApplicationIcon()
@@ -213,13 +204,6 @@ internal sealed class NotificationAreaIcon : IDisposable
         }
 
         return (Icon)SystemIcons.Application.Clone();
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct NativePoint
-    {
-        internal int X;
-        internal int Y;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -251,36 +235,4 @@ internal sealed class NotificationAreaIcon : IDisposable
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern uint RegisterWindowMessage(string message);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr CreatePopupMenu();
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool AppendMenu(IntPtr menu, uint flags, uint id, string? text);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetMenuDefaultItem(IntPtr menu, uint item, bool byPosition);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetCursorPos(out NativePoint point);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetForegroundWindow(IntPtr window);
-
-    [DllImport("user32.dll")]
-    private static extern uint TrackPopupMenuEx(
-        IntPtr menu,
-        uint flags,
-        int x,
-        int y,
-        IntPtr window,
-        IntPtr parameters);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool DestroyMenu(IntPtr menu);
 }

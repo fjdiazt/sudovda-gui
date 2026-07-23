@@ -135,6 +135,7 @@ internal static class SelfTest
         var start = Find<Button>(window, "_startStopButton");
         var displayGroup = Find<GroupBox>(window, "displayGroup");
         var behaviorGroup = Find<GroupBox>(window, "behaviorGroup");
+        var applicationBehaviorGroup = Find<GroupBox>(window, "applicationBehaviorGroup");
         var resolutionLayout = Find<Grid>(window, "resolutionLayout");
         var widthLabel = Find<Label>(window, "widthLabel");
         var heightLabel = Find<Label>(window, "heightLabel");
@@ -142,6 +143,21 @@ internal static class SelfTest
         var statusIndicator = Find<TextBlock>(window, "_statusIndicator");
 
         Check(window.Title == "SudoVDA", "main window title");
+        Check(window.ResizeMode == System.Windows.ResizeMode.CanMinimize, "minimize button available");
+        var trayMenu = NotificationAreaIcon.CreateMenu(
+            () => { },
+            () => ("Start virtual display", true),
+            () => { },
+            () => { });
+        Check(trayMenu.Placement == PlacementMode.MousePoint,
+            "tray menu uses top-level WPF popup");
+        Check(trayMenu.Items.Cast<object>().OfType<MenuItem>()
+            .Select(item => item.Header?.ToString()).SequenceEqual(
+            ["Open SudoVDA", "Start virtual display", "Exit"]),
+            "tray menu commands");
+        trayMenu.ApplyTemplate();
+        Check(trayMenu.Template.FindName("DarkMenuBackground", trayMenu) is Border,
+            "dark tray menu chrome");
         Check(Equals(window.Background, window.FindResource("WindowBackgroundBrush")),
             "dark window theme");
         aspect.ApplyTemplate();
@@ -187,7 +203,9 @@ internal static class SelfTest
             "notification-area option");
         Check(start.Content?.ToString() == "Start", "start button default");
         Check(displayGroup.Header?.ToString() == "Display", "display group");
-        Check(behaviorGroup.Header?.ToString() == "Behavior", "behavior group");
+        Check(behaviorGroup.Header?.ToString() == "Display behavior", "display behavior group");
+        Check(applicationBehaviorGroup.Header?.ToString() == "Application behavior",
+            "application behavior group");
         Check(Grid.GetColumn(width) == 0 && Grid.GetRow(width) == 5 &&
               Grid.GetColumn(height) == 1 && Grid.GetRow(height) == 5 &&
               Grid.GetColumn(refresh) == 3 && Grid.GetRow(refresh) == 5,

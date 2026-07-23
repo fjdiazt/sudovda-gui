@@ -10,6 +10,7 @@ A small Windows GUI for creating and managing a temporary virtual display with S
 ## Features
 
 - Create one temporary virtual display.
+- Position the virtual display centered above the current primary display.
 - Choose its aspect ratio, resolution, and refresh rate.
 - Match the current primary display.
 - Lock the aspect ratio while entering a custom resolution.

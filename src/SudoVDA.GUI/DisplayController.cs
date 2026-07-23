@@ -144,26 +144,10 @@ internal static class DisplayController
     {
         var target = snapshot.Displays.Single(display =>
             string.Equals(display.DeviceName, deviceName, StringComparison.OrdinalIgnoreCase));
-        var others = snapshot.Displays
-            .Where(display => !string.Equals(display.DeviceName, deviceName, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-
-        var targetBounds = new Rectangle(
-            target.Position.X,
-            target.Position.Y,
-            checked((int)target.Mode.Width),
-            checked((int)target.Mode.Height));
-        var overlaps = others.Any(display => targetBounds.IntersectsWith(new Rectangle(
-            display.Position.X,
-            display.Position.Y,
-            checked((int)display.Mode.Width),
-            checked((int)display.Mode.Height))));
-        if (!overlaps)
-            return target.Position;
-
-        var right = others.Max(display => display.Position.X + checked((int)display.Mode.Width));
-        var primaryY = others.Single(display => display.Primary).Position.Y;
-        return new Point(right, primaryY);
+        var primary = snapshot.Displays.Single(display => display.Primary);
+        return new Point(
+            primary.Position.X + (checked((int)primary.Mode.Width) - checked((int)target.Mode.Width)) / 2,
+            primary.Position.Y - checked((int)target.Mode.Height));
     }
 
     internal static void Restore(DisplaySnapshot snapshot)

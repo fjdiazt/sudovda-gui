@@ -60,19 +60,19 @@ internal static class SelfTest
 
         var placedDisplays = new DisplaySnapshot(
         [
-            new DisplayState("physical", new Point(0, 0), new DisplayMode(1920, 1080, 60), true),
-            new DisplayState("virtual", new Point(1920, 0), new DisplayMode(1920, 1080, 60), false)
+            new DisplayState("physical", new Point(100, 200), new DisplayMode(1920, 1080, 60), true),
+            new DisplayState("virtual", new Point(2020, 200), new DisplayMode(1280, 720, 60), false)
         ]);
-        Check(DisplayController.ChoosePosition(placedDisplays, "virtual") == new Point(1920, 0),
-            "retain non-overlapping virtual position");
+        Check(DisplayController.ChoosePosition(placedDisplays, "virtual") == new Point(420, -520),
+            "center virtual display above offset primary");
 
         var overlappingDisplays = new DisplaySnapshot(
         [
             new DisplayState("physical", new Point(0, 0), new DisplayMode(1920, 1080, 60), true),
             new DisplayState("virtual", new Point(0, 0), new DisplayMode(1920, 1080, 60), false)
         ]);
-        Check(DisplayController.ChoosePosition(overlappingDisplays, "virtual") == new Point(1920, 0),
-            "move overlapping virtual display right");
+        Check(DisplayController.ChoosePosition(overlappingDisplays, "virtual") == new Point(0, -1080),
+            "center overlapping virtual display above primary");
         Check(snapshot.Displays.Count(display => display.Primary) == 1, "single primary discovery");
         var modeChoices = DisplayController.GetModeChoices();
         Check(modeChoices.Count > 0, "display mode discovery");

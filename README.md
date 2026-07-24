@@ -16,7 +16,7 @@ A small Windows GUI for creating and managing a temporary virtual display with S
 - Lock the aspect ratio while entering a custom resolution.
 - Optionally make the virtual display primary.
 - Optionally move newly opened windows onto it.
-- Remove the display and restore the previous layout when stopped.
+- Move windows back to the original primary display, remove the virtual display, and restore the previous layout when stopped.
 - Start the app when signing in to Windows.
 - Minimize the app to the Windows notification area.
 

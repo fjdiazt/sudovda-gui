@@ -39,7 +39,7 @@ Closing the app also removes its virtual display and restores the previous displ
 
 **Start with Windows** launches the app, not the virtual display. When both startup and notification-area options are enabled, the app starts hidden. Select the notification icon to reopen it, or right-click the icon to start or stop the virtual display or exit.
 
-The Minimize button hides the app when **Minimize to notification area** is enabled. The Close button always exits.
+The Minimize button hides the app when **Minimize to notification area** is enabled. The Close button hides it when **Close to notification area** is enabled; use **Exit** from the notification-area menu to quit.
 
 ## Limitations
 

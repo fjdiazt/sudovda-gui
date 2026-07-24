@@ -144,18 +144,31 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <CheckBox x:Name="_startWithWindowsCheck"
+                          Grid.Row="0"
                           Grid.Column="0"
                           Content="Start with Windows"
                           Margin="0,0,12,0"
                           automation:AutomationProperties.AutomationId="startWithWindowsCheck"
                           TabIndex="8" />
                 <CheckBox x:Name="_minimizeToNotificationAreaCheck"
+                          Grid.Row="0"
                           Grid.Column="1"
                           Content="Minimize to notification area"
                           Margin="12,0,0,0"
                           automation:AutomationProperties.AutomationId="minimizeToNotificationAreaCheck"
                           TabIndex="9" />
+                <CheckBox x:Name="_closeToNotificationAreaCheck"
+                          Grid.Row="1"
+                          Grid.Column="1"
+                          Content="Close to notification area"
+                          Margin="12,8,0,0"
+                          automation:AutomationProperties.AutomationId="closeToNotificationAreaCheck"
+                          TabIndex="10" />
             </Grid>
         </GroupBox>
 

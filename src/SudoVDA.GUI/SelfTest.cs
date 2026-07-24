@@ -183,6 +183,7 @@ internal static class SelfTest
         var routingCheck = Find<CheckBox>(window, "_routingCheck");
         var startWithWindowsCheck = window.FindName("_startWithWindowsCheck") as CheckBox;
         var minimizeCheck = window.FindName("_minimizeToNotificationAreaCheck") as CheckBox;
+        var closeCheck = window.FindName("_closeToNotificationAreaCheck") as CheckBox;
         var start = Find<Button>(window, "_startStopButton");
         var displayGroup = Find<GroupBox>(window, "displayGroup");
         var behaviorGroup = Find<GroupBox>(window, "behaviorGroup");
@@ -252,6 +253,9 @@ internal static class SelfTest
         Check(startWithWindowsCheck?.IsChecked == false, "start-with-Windows default");
         Check(minimizeCheck?.Content?.ToString() == "Minimize to notification area",
             "notification-area option");
+        Check(closeCheck?.Content?.ToString() == "Close to notification area",
+            "close-to-notification-area option");
+        Check(closeCheck?.IsChecked == false, "close-to-notification-area default");
         Check(start.Content?.ToString() == "Start", "start button default");
         Check(displayGroup.Header?.ToString() == "Display", "display group");
         Check(behaviorGroup.Header?.ToString() == "Display behavior", "display behavior group");
@@ -284,9 +288,11 @@ internal static class SelfTest
         Check(width.Text == "1920" && height.Text == "1080", "preset populates dimensions");
         width.Text = "2000";
         Check(preset.SelectedItem?.ToString() == "Custom", "manual edit selects custom");
+        Check(saved?.Width == 2000, "valid resolution change saves immediately");
         width.Text = "invalid";
         Check(!start.IsEnabled && width.ToolTip?.ToString() == "Width must be 640–7680.",
             "invalid width disables start and explains error");
+        Check(saved?.Width == 2000, "invalid resolution is not saved");
         width.Text = "2000";
         window.SetUiState("Active", false, true);
         Check(!aspect.IsEnabled && !preset.IsEnabled && !width.IsEnabled &&
@@ -303,15 +309,18 @@ internal static class SelfTest
         startWithWindowsCheck!.IsChecked = true;
         if (minimizeCheck is not null)
             minimizeCheck.IsChecked = true;
-        window.PersistSettings();
+        if (closeCheck is not null)
+            closeCheck.IsChecked = true;
         Check(startWithWindowsSaved == true, "start-with-Windows registration");
-        Check(saved == new UserSettings("Custom", 2000, 1080, 119, false, false, true),
+        Check(saved == new UserSettings("Custom", 2000, 1080, 119, false, false, true, true),
             "window settings persistence");
         Check(saved?.GetType().GetProperty("MinimizeToNotificationArea")?.GetValue(saved) is true,
             "notification-area preference persistence");
         width.Text = "2100";
-        window.PersistSettings();
-        Check(saved?.Width == 2100, "settings resave after later edit");
+        Check(saved?.CloseToNotificationArea == true,
+            "close-to-notification-area preference persistence");
+        Check(saved?.Width == 2100, "later resolution change saves immediately");
+        closeCheck!.IsChecked = false;
         window.Close();
     }
 
@@ -446,7 +455,7 @@ internal static class SelfTest
         var path = $@"Software\VRPrivacy\Tests\{Guid.NewGuid():N}";
         try
         {
-            var expected = new UserSettings("Custom", 2000, 1000, 144, false, true, true);
+            var expected = new UserSettings("Custom", 2000, 1000, 144, false, true, true, true);
             UserSettingsStore.Save(expected, path);
             Check(UserSettingsStore.Load(primary, path) == expected, "settings registry round-trip");
 

@@ -28,7 +28,8 @@ internal sealed record UserSettings(
     uint RefreshHz,
     bool MakePrimary,
     bool RouteNewWindows,
-    bool MinimizeToNotificationArea)
+    bool MinimizeToNotificationArea,
+    bool CloseToNotificationArea = false)
 {
     internal const string CopyPrimary = "CopyPrimary";
     internal const string Custom = "Custom";
@@ -36,7 +37,7 @@ internal sealed record UserSettings(
     internal static UserSettings Defaults(DisplayMode primary)
     {
         var refresh = primary.RefreshHz is >= 1 and <= 500 ? primary.RefreshHz : 60;
-        return new(CopyPrimary, primary.Width, primary.Height, refresh, true, true, false);
+        return new(CopyPrimary, primary.Width, primary.Height, refresh, true, true, false, false);
     }
 }
 
@@ -180,6 +181,7 @@ internal static class UserSettingsStore
             var makePrimary = ReadBoolean(key, "MakePrimary", true);
             var routeNewWindows = ReadBoolean(key, "RouteNewWindows", true);
             var minimizeToNotificationArea = ReadBoolean(key, "MinimizeToNotificationArea", false);
+            var closeToNotificationArea = ReadBoolean(key, "CloseToNotificationArea", false);
             var preset = key.GetValue("Preset") as string ?? UserSettings.CopyPrimary;
             var width = ReadUInt(key, "Width", defaults.Width);
             var height = ReadUInt(key, "Height", defaults.Height);
@@ -204,13 +206,14 @@ internal static class UserSettingsStore
                 {
                     MakePrimary = makePrimary,
                     RouteNewWindows = routeNewWindows,
-                    MinimizeToNotificationArea = minimizeToNotificationArea
+                    MinimizeToNotificationArea = minimizeToNotificationArea,
+                    CloseToNotificationArea = closeToNotificationArea
                 };
             }
 
             return new(
                 preset, width, height, refresh,
-                makePrimary, routeNewWindows, minimizeToNotificationArea);
+                makePrimary, routeNewWindows, minimizeToNotificationArea, closeToNotificationArea);
         }
         catch
         {
@@ -229,6 +232,8 @@ internal static class UserSettingsStore
         key.SetValue("RouteNewWindows", settings.RouteNewWindows ? 1 : 0, RegistryValueKind.DWord);
         key.SetValue(
             "MinimizeToNotificationArea", settings.MinimizeToNotificationArea ? 1 : 0, RegistryValueKind.DWord);
+        key.SetValue(
+            "CloseToNotificationArea", settings.CloseToNotificationArea ? 1 : 0, RegistryValueKind.DWord);
     }
 
     private static uint ReadUInt(RegistryKey key, string name, uint fallback) =>

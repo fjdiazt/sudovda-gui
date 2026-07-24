@@ -29,6 +29,7 @@ public sealed partial class MainWindow : Window
     private bool _transitioning;
     private bool _closing;
     private bool _allowClose;
+    private bool _exitRequested;
 
     internal MainWindow() : this(null, null, null, null, null, null)
     {
@@ -64,6 +65,8 @@ public sealed partial class MainWindow : Window
         _routingCheck.Unchecked += (_, _) => UpdatePersistedChecks();
         _minimizeToNotificationAreaCheck.Checked += (_, _) => UpdatePersistedChecks();
         _minimizeToNotificationAreaCheck.Unchecked += (_, _) => UpdatePersistedChecks();
+        _closeToNotificationAreaCheck.Checked += (_, _) => UpdatePersistedChecks();
+        _closeToNotificationAreaCheck.Unchecked += (_, _) => UpdatePersistedChecks();
         _startWithWindowsCheck.Checked += (_, _) => OnStartWithWindowsChanged();
         _startWithWindowsCheck.Unchecked += (_, _) => OnStartWithWindowsChanged();
         _startStopButton.Click += async (_, _) => await ToggleAsync();
@@ -71,7 +74,7 @@ public sealed partial class MainWindow : Window
         Closing += OnWindowClosing;
         Closed += (_, _) => _notificationAreaIcon?.Dispose();
         UpdateAspectLockButton();
-        ValidateResolution();
+        ValidateResolution(false);
     }
 
     private void LoadResolutionControls(IReadOnlyList<DisplayMode> modes, UserSettings settings)
@@ -98,6 +101,7 @@ public sealed partial class MainWindow : Window
         SetModeText(initialMode, true);
         _primaryCheck.IsChecked = settings.MakePrimary;
         _routingCheck.IsChecked = settings.RouteNewWindows;
+        _closeToNotificationAreaCheck.IsChecked = settings.CloseToNotificationArea;
         _minimizeToNotificationAreaCheck.IsChecked = settings.MinimizeToNotificationArea;
         _suppressResolutionEvents = false;
     }
@@ -288,7 +292,7 @@ public sealed partial class MainWindow : Window
             textBox.BorderBrush = (Brush)FindResource("ErrorBrush");
     }
 
-    private void ValidateResolution()
+    private void ValidateResolution(bool persist = true)
     {
         _modeValid = TryReadMode(out var mode);
         if (_modeValid && _presetCombo.SelectedItem is PresetChoice choice)
@@ -300,7 +304,10 @@ public sealed partial class MainWindow : Window
                 mode.RefreshHz,
                 _primaryCheck.IsChecked == true,
                 _routingCheck.IsChecked == true,
-                _minimizeToNotificationAreaCheck.IsChecked == true);
+                _minimizeToNotificationAreaCheck.IsChecked == true,
+                _closeToNotificationAreaCheck.IsChecked == true);
+            if (persist)
+                PersistSettings();
         }
         UpdateStartStopEnabled();
     }
@@ -311,20 +318,17 @@ public sealed partial class MainWindow : Window
         {
             MakePrimary = _primaryCheck.IsChecked == true,
             RouteNewWindows = _routingCheck.IsChecked == true,
-            MinimizeToNotificationArea = _minimizeToNotificationAreaCheck.IsChecked == true
+            MinimizeToNotificationArea = _minimizeToNotificationAreaCheck.IsChecked == true,
+            CloseToNotificationArea = _closeToNotificationAreaCheck.IsChecked == true
         };
+        PersistSettings();
     }
 
-    internal void PersistSettings()
+    private void PersistSettings()
     {
         try
         {
-            _saveSettings(_lastValidSettings with
-            {
-                MakePrimary = _primaryCheck.IsChecked == true,
-                RouteNewWindows = _routingCheck.IsChecked == true,
-                MinimizeToNotificationArea = _minimizeToNotificationAreaCheck.IsChecked == true
-            });
+            _saveSettings(_lastValidSettings);
         }
         catch (Exception exception)
         {
@@ -337,12 +341,11 @@ public sealed partial class MainWindow : Window
 
     internal bool MinimizeToNotificationAreaEnabled =>
         _minimizeToNotificationAreaCheck.IsChecked == true;
+    internal bool CloseToNotificationAreaEnabled =>
+        _closeToNotificationAreaCheck.IsChecked == true;
 
     internal void HideToNotificationArea()
     {
-        if (!MinimizeToNotificationAreaEnabled)
-            return;
-
         try
         {
             _notificationAreaIcon ??= new NotificationAreaIcon(
@@ -350,7 +353,7 @@ public sealed partial class MainWindow : Window
                 RestoreFromNotificationArea,
                 GetNotificationAreaAction,
                 ToggleFromNotificationArea,
-                Close);
+                ExitApplication);
             _notificationAreaIcon.Show();
             ShowInTaskbar = false;
             Hide();
@@ -372,6 +375,12 @@ public sealed partial class MainWindow : Window
         Show();
         WindowState = WindowState.Normal;
         Activate();
+    }
+
+    private void ExitApplication()
+    {
+        _exitRequested = true;
+        Close();
     }
 
     private void OnWindowStateChanged()
@@ -711,7 +720,13 @@ public sealed partial class MainWindow : Window
 
     private void OnWindowClosing(object? sender, CancelEventArgs eventArgs)
     {
-        PersistSettings();
+        if (!_allowClose && !_exitRequested && CloseToNotificationAreaEnabled)
+        {
+            eventArgs.Cancel = true;
+            HideToNotificationArea();
+            return;
+        }
+
         if (_allowClose || (_session is null && !_transitioning))
             return;
 

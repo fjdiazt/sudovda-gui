@@ -530,6 +530,16 @@ public sealed partial class MainWindow : Window
             }, "stop window routing", errors);
             await TryCleanupAsync(() =>
             {
+                var originalPrimary = session.Snapshot.Displays.Single(display => display.Primary);
+                WindowRouter.RelocateWindows(
+                    DisplayController.GetBounds(session.DeviceName),
+                    DisplayController.GetBounds(originalPrimary.DeviceName),
+                    errors.Add);
+                return Task.CompletedTask;
+            }, "relocate windows", errors);
+
+            await TryCleanupAsync(() =>
+            {
                 DisplayController.Restore(session.Snapshot);
                 return Task.CompletedTask;
             }, "restore display topology", errors);

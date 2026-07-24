@@ -110,6 +110,10 @@ internal static class SelfTest
                 new Rectangle(-100, -1200, 2000, 1000), sourceBounds, destinationBounds) ==
               destinationBounds,
             "relocation shrinks oversized window");
+        Check(typeof(WindowRouter).GetMethod(
+                "RelocateWindows",
+                BindingFlags.Static | BindingFlags.NonPublic) is not null,
+            "stop window relocation entry point");
 
         using var driver = SudoVdaClient.Open();
         var protocol = driver.GetProtocolVersion();

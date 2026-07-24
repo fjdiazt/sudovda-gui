@@ -29,6 +29,7 @@ internal sealed class WindowRouter : IDisposable, IAsyncDisposable
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpAsyncWindowPos = 0x4000;
+    private const uint MonitorDefaultToNull = 0;
 
     private readonly Rectangle _targetBounds;
     private readonly uint _ownProcessId;
@@ -122,6 +123,81 @@ internal sealed class WindowRouter : IDisposable, IAsyncDisposable
             Math.Clamp(y, destinationBounds.Top, destinationBounds.Bottom - height),
             width,
             height);
+    }
+
+    internal static void RelocateWindows(
+        Rectangle sourceBounds,
+        Rectangle destinationBounds,
+        Action<string>? reportError = null)
+    {
+        if (sourceBounds.Width <= 0 || sourceBounds.Height <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sourceBounds));
+        if (destinationBounds.Width <= 0 || destinationBounds.Height <= 0)
+            throw new ArgumentOutOfRangeException(nameof(destinationBounds));
+
+        var sourceRect = new NativeRect
+        {
+            Left = sourceBounds.Left,
+            Top = sourceBounds.Top,
+            Right = sourceBounds.Right,
+            Bottom = sourceBounds.Bottom
+        };
+        var sourceMonitor = MonitorFromRect(ref sourceRect, MonitorDefaultToNull);
+        if (sourceMonitor == IntPtr.Zero)
+            throw new InvalidOperationException("Virtual display monitor could not be resolved.");
+
+        var shellWindow = GetShellWindow();
+        EnumWindowsDelegate callback = (window, _) =>
+        {
+            try
+            {
+                var candidate = ReadCandidate(window);
+                if (!ShouldRelocate(
+                        candidate,
+                        GetAncestor(window, GaRoot) == window,
+                        window == shellWindow,
+                        MonitorFromWindow(window, MonitorDefaultToNull) == sourceMonitor) ||
+                    !GetWindowRect(window, out var current))
+                {
+                    return true;
+                }
+
+                var target = CalculateRelocatedBounds(
+                    new Rectangle(
+                        current.Left,
+                        current.Top,
+                        current.Right - current.Left,
+                        current.Bottom - current.Top),
+                    sourceBounds,
+                    destinationBounds);
+
+                if (!SetWindowPos(
+                        window,
+                        IntPtr.Zero,
+                        target.Left,
+                        target.Top,
+                        target.Width,
+                        target.Height,
+                        SwpNoZOrder | SwpNoActivate))
+                {
+                    reportError?.Invoke(
+                        $"Could not relocate window 0x{window.ToInt64():X}: " +
+                        new Win32Exception(Marshal.GetLastWin32Error()).Message);
+                }
+            }
+            catch (Exception exception)
+            {
+                reportError?.Invoke(
+                    $"Could not relocate window 0x{window.ToInt64():X}: {exception.Message}");
+            }
+
+            return true;
+        };
+
+        if (!EnumWindows(callback, IntPtr.Zero))
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not enumerate desktop windows.");
+
+        GC.KeepAlive(callback);
     }
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -250,6 +326,8 @@ internal sealed class WindowRouter : IDisposable, IAsyncDisposable
         uint eventThread,
         uint eventTime);
 
+    private delegate bool EnumWindowsDelegate(IntPtr window, IntPtr parameter);
+
     [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr SetWinEventHook(
         uint eventMin,
@@ -269,6 +347,16 @@ internal sealed class WindowRouter : IDisposable, IAsyncDisposable
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetShellWindow();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumWindows(EnumWindowsDelegate callback, IntPtr parameter);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromRect(ref NativeRect rectangle, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr window, uint flags);
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);

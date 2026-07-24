@@ -88,6 +88,42 @@ internal sealed class WindowRouter : IDisposable, IAsyncDisposable
         candidate.ProcessId != ownProcessId &&
         candidate.ProcessId != shellProcessId;
 
+    internal static bool ShouldRelocate(
+        WindowCandidate candidate,
+        bool isRoot,
+        bool isShellWindow,
+        bool onSourceMonitor) =>
+        isRoot &&
+        !isShellWindow &&
+        onSourceMonitor &&
+        candidate.Visible &&
+        !candidate.Cloaked &&
+        !candidate.ToolWindow &&
+        !candidate.NoActivate &&
+        candidate.ProcessId != 0;
+
+    internal static Rectangle CalculateRelocatedBounds(
+        Rectangle windowBounds,
+        Rectangle sourceBounds,
+        Rectangle destinationBounds)
+    {
+        if (sourceBounds.Width <= 0 || sourceBounds.Height <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sourceBounds));
+        if (destinationBounds.Width <= 0 || destinationBounds.Height <= 0)
+            throw new ArgumentOutOfRangeException(nameof(destinationBounds));
+
+        var width = Math.Clamp(windowBounds.Width, 1, destinationBounds.Width);
+        var height = Math.Clamp(windowBounds.Height, 1, destinationBounds.Height);
+        var x = destinationBounds.Left + windowBounds.Left - sourceBounds.Left;
+        var y = destinationBounds.Top + windowBounds.Top - sourceBounds.Top;
+
+        return new Rectangle(
+            Math.Clamp(x, destinationBounds.Left, destinationBounds.Right - width),
+            Math.Clamp(y, destinationBounds.Top, destinationBounds.Bottom - height),
+            width,
+            height);
+    }
+
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     public async ValueTask DisposeAsync()

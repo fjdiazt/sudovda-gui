@@ -86,6 +86,30 @@ internal static class SelfTest
         Check(!WindowRouter.IsEligible(new(true, false, false, true, 42), 7, 99), "non-activating window");
         Check(!WindowRouter.IsEligible(new(true, false, false, false, 99), 7, 99), "shell process");
         Check(!WindowRouter.IsEligible(new(false, false, false, false, 42), 7, 99), "hidden window");
+        Check(WindowRouter.ShouldRelocate(
+                new WindowCandidate(true, false, false, false, 42), true, false, true),
+            "normal source-display window relocates");
+        Check(!WindowRouter.ShouldRelocate(
+                new WindowCandidate(true, false, false, false, 42), true, true, true),
+            "shell window does not relocate");
+        Check(!WindowRouter.ShouldRelocate(
+                new WindowCandidate(true, false, false, false, 42), true, false, false),
+            "other-display window does not relocate");
+
+        var sourceBounds = new Rectangle(0, -1080, 1920, 1080);
+        var destinationBounds = new Rectangle(100, 200, 1280, 720);
+        Check(WindowRouter.CalculateRelocatedBounds(
+                new Rectangle(200, -980, 800, 600), sourceBounds, destinationBounds) ==
+              new Rectangle(300, 300, 800, 600),
+            "relocation preserves relative offset");
+        Check(WindowRouter.CalculateRelocatedBounds(
+                new Rectangle(1500, -200, 900, 700), sourceBounds, destinationBounds) ==
+              new Rectangle(480, 220, 900, 700),
+            "relocation clamps inside destination");
+        Check(WindowRouter.CalculateRelocatedBounds(
+                new Rectangle(-100, -1200, 2000, 1000), sourceBounds, destinationBounds) ==
+              destinationBounds,
+            "relocation shrinks oversized window");
 
         using var driver = SudoVdaClient.Open();
         var protocol = driver.GetProtocolVersion();
